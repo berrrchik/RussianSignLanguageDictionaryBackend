@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Административная панель - Главная</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="navbar-brand">Словарь жестового языка</div>
+            <ul class="navbar-nav">
+                <li><a href="/admin/dashboard" class="active">Главная</a></li>
+                <li><a href="/admin/signs">Жесты</a></li>
+                <li><a href="/admin/categories">Категории</a></li>
+            </ul>
+            <button class="btn-logout" onclick="logout()">Выйти</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="section">
+            <h1>Добро пожаловать в административную панель</h1>
+            <p>Используйте навигационное меню для управления жестами и категориями.</p>
+            
+            <div style="margin-top: 2rem;">
+                <h2>Быстрые действия</h2>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <a href="/admin/signs" class="btn btn-primary">Управление жестами</a>
+                    <a href="/admin/categories" class="btn btn-primary">Управление категориями</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Проверка авторизации при загрузке
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = '/admin/login';
+            }
+        });
+
+        // Функция выхода
+        function logout() {
+            if (confirm('Вы уверены, что хотите выйти?')) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/admin/login';
+            }
+        }
+
+        // Функция для показа уведомлений (будет использоваться на других страницах)
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Функция для выполнения авторизованных запросов
+        async function apiRequest(url, options = {}) {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = '/admin/login';
+                return;
+            }
+
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            };
+
+            const mergedOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+
+            const response = await fetch(url, mergedOptions);
+            
+            if (response.status === 401) {
+                localStorage.removeItem('authToken');
+                window.location.href = '/admin/login';
+                return null;
+            }
+
+            return response;
+        }
+    </script>
+</body>
+</html>
+

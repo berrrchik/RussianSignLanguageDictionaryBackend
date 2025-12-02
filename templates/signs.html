@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление жестами</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="navbar-brand">Словарь жестового языка</div>
+            <ul class="navbar-nav">
+                <li><a href="/admin/dashboard">Главная</a></li>
+                <li><a href="/admin/signs" class="active">Жесты</a></li>
+                <li><a href="/admin/categories">Категории</a></li>
+            </ul>
+            <button class="btn-logout" onclick="logout()">Выйти</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="section">
+            <div class="section-header">
+                <h1>Управление жестами</h1>
+                <button class="btn btn-success" onclick="openCreateSignModal()">Создать жест</button>
+            </div>
+
+            <div class="controls">
+                <input type="text" id="searchInput" placeholder="Поиск по слову..." onkeyup="filterSigns()">
+                <select id="categoryFilter" onchange="filterSigns()">
+                    <option value="">Все категории</option>
+                </select>
+            </div>
+
+            <div class="table-container">
+                <table id="signsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Слово</th>
+                            <th>Категория</th>
+                            <th>Видео</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="signsTableBody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 2rem;">
+                                <div class="loading"></div> Загрузка...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="pagination" class="pagination"></div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для создания/редактирования жеста -->
+    <div id="signModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="signModalTitle">Создать жест</h2>
+                <button class="modal-close" onclick="closeSignModal()">&times;</button>
+            </div>
+            <form id="signForm" onsubmit="saveSign(event)">
+                <input type="hidden" id="signId" name="id">
+                <div class="form-group">
+                    <label for="signIdInput">ID (оставьте пустым для автоматической генерации)</label>
+                    <input type="text" id="signIdInput" name="id_input" placeholder="Будет сгенерирован автоматически">
+                </div>
+                <div class="form-group">
+                    <label for="signWord">Слово <span class="required">*</span></label>
+                    <input type="text" id="signWord" name="word" required>
+                </div>
+                <div class="form-group">
+                    <label for="signDescription">Описание</label>
+                    <textarea id="signDescription" name="description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="signCategory">Категория <span class="required">*</span></label>
+                    <select id="signCategory" name="category_id" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="signKeywords">Ключевые слова (через запятую)</label>
+                    <input type="text" id="signKeywords" name="keywords" placeholder="слово1, слово2, слово3">
+                </div>
+                <div id="signFormError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSignModal()">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="signFormSubmit">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования жеста (с видео и синонимами) -->
+    <div id="editSignModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 id="editSignModalTitle">Редактировать жест</h2>
+                <button class="modal-close" onclick="closeEditSignModal()">&times;</button>
+            </div>
+            
+            <div id="editSignContent">
+                <!-- Основная информация о жесте -->
+                <div class="section" style="margin-bottom: 1rem;">
+                    <h3>Основная информация</h3>
+                    <form id="editSignForm" onsubmit="updateSign(event)">
+                        <input type="hidden" id="editSignId">
+                        <div class="form-group">
+                            <label for="editSignWord">Слово <span class="required">*</span></label>
+                            <input type="text" id="editSignWord" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editSignDescription">Описание</label>
+                            <textarea id="editSignDescription"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="editSignCategory">Категория <span class="required">*</span></label>
+                            <select id="editSignCategory" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editSignKeywords">Ключевые слова (через запятую)</label>
+                            <input type="text" id="editSignKeywords" placeholder="слово1, слово2, слово3">
+                        </div>
+                        <div id="editSignFormError" class="error-message" style="display: none;"></div>
+                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                    </form>
+                </div>
+
+                <!-- Управление видео -->
+                <div class="section" style="margin-bottom: 1rem;">
+                    <div class="section-header">
+                        <h3>Видео</h3>
+                        <button class="btn btn-success" onclick="openAddVideoModal()">Добавить видео</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Порядок</th>
+                                    <th>Описание контекста</th>
+                                    <th>URL</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="videosTableBody">
+                                <tr><td colspan="4" style="text-align: center; padding: 1rem;">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Управление синонимами -->
+                <div class="section">
+                    <div class="section-header">
+                        <h3>Синонимы</h3>
+                        <button class="btn btn-success" onclick="openAddSynonymModal()">Добавить синоним</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Слово синонима</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody id="synonymsTableBody">
+                                <tr><td colspan="2" style="text-align: center; padding: 1rem;">Загрузка...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления видео -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить видео</h2>
+                <button class="modal-close" onclick="closeVideoModal()">&times;</button>
+            </div>
+            <form id="videoForm" onsubmit="uploadVideo(event)">
+                <div class="form-group">
+                    <label for="videoFile">Видео файл (MP4, макс. 50MB) <span class="required">*</span></label>
+                    <input type="file" id="videoFile" name="file" accept="video/mp4" required>
+                </div>
+                <div class="form-group">
+                    <label for="videoContextDescription">Описание контекста <span class="required">*</span></label>
+                    <textarea id="videoContextDescription" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="videoOrder">Порядок</label>
+                    <input type="number" id="videoOrder" value="0" min="0">
+                </div>
+                <div id="videoFormError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeVideoModal()">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Загрузить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно для поиска синонима -->
+    <div id="synonymModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить синоним</h2>
+                <button class="modal-close" onclick="closeSynonymModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label for="synonymSearch">Поиск жеста</label>
+                <input type="text" id="synonymSearch" placeholder="Введите слово для поиска..." onkeyup="searchSignsForSynonym(this.value)">
+            </div>
+            <div id="synonymSearchResults" class="search-results" style="display: none;"></div>
+            <div id="synonymFormError" class="error-message" style="display: none;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSynonymModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для просмотра видео -->
+    <div id="viewVideoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Просмотр видео</h2>
+                <button class="modal-close" onclick="closeViewVideoModal()">&times;</button>
+            </div>
+            <video id="viewVideoPlayer" class="video-preview" controls></video>
+            <p id="viewVideoDescription" style="margin-top: 1rem;"></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/signs.js') }}"></script>
+</body>
+</html>
+

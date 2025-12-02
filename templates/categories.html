@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление категориями</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="navbar-brand">Словарь жестового языка</div>
+            <ul class="navbar-nav">
+                <li><a href="/admin/dashboard">Главная</a></li>
+                <li><a href="/admin/signs">Жесты</a></li>
+                <li><a href="/admin/categories" class="active">Категории</a></li>
+            </ul>
+            <button class="btn-logout" onclick="logout()">Выйти</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="section">
+            <div class="section-header">
+                <h1>Управление категориями</h1>
+                <button class="btn btn-success" onclick="openCreateCategoryModal()">Создать категорию</button>
+            </div>
+
+            <div class="table-container">
+                <table id="categoriesTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Порядок</th>
+                            <th>Количество жестов</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTableBody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 2rem;">
+                                <div class="loading"></div> Загрузка...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для создания/редактирования категории -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="categoryModalTitle">Создать категорию</h2>
+                <button class="modal-close" onclick="closeCategoryModal()">&times;</button>
+            </div>
+            <form id="categoryForm" onsubmit="saveCategory(event)">
+                <input type="hidden" id="categoryId" name="id">
+                <div class="form-group">
+                    <label for="categoryName">Название <span class="required">*</span></label>
+                    <input type="text" id="categoryName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="categoryOrder">Порядок <span class="required">*</span></label>
+                    <input type="number" id="categoryOrder" name="order" required min="0">
+                </div>
+                <div id="categoryFormError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCategoryModal()">Отмена</button>
+                    <button type="submit" class="btn btn-primary" id="categoryFormSubmit">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно предупреждения при удалении категории -->
+    <div id="deleteCategoryModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>Предупреждение</h2>
+                <button class="modal-close" onclick="closeDeleteCategoryModal()">&times;</button>
+            </div>
+            <div class="warning-box">
+                <h3>Внимание!</h3>
+                <p>Эта категория содержит жесты. Перед удалением необходимо перенести все жесты в другую категорию.</p>
+                <p><strong>Количество жестов: <span id="deleteCategorySignsCount">0</span></strong></p>
+            </div>
+            
+            <div class="section" style="margin-top: 1rem;">
+                <h3>Жесты в категории:</h3>
+                <div id="deleteCategorySignsList" class="signs-list"></div>
+            </div>
+
+            <div class="section" style="margin-top: 1rem;">
+                <h3>Выберите действие:</h3>
+                <div class="form-group">
+                    <label>Вариант 1: Перенести все жесты в существующую категорию</label>
+                    <select id="moveToExistingCategory">
+                        <option value="">Выберите категорию</option>
+                    </select>
+                    <button class="btn btn-primary" style="margin-top: 0.5rem;" onclick="moveAllToExistingCategory()">Перенести все</button>
+                </div>
+                
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>Вариант 2: Создать новую категорию и перенести все жесты</label>
+                    <input type="text" id="newCategoryName" placeholder="Название новой категории" style="margin-top: 0.5rem;">
+                    <input type="number" id="newCategoryOrder" placeholder="Порядок" style="margin-top: 0.5rem;">
+                    <button class="btn btn-primary" style="margin-top: 0.5rem;" onclick="moveAllToNewCategory()">Создать и перенести</button>
+                </div>
+                
+                <div class="form-group" style="margin-top: 1.5rem;">
+                    <label>Вариант 3: Перенести жесты по одному</label>
+                    <p style="color: #666; font-size: 0.9rem;">Используйте кнопку "Редактировать" рядом с каждым жестом для переноса в нужную категорию.</p>
+                </div>
+            </div>
+
+            <div id="deleteCategoryError" class="error-message" style="display: none; margin-top: 1rem;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteCategoryModal()">Отмена</button>
+                <button type="button" class="btn btn-danger" id="deleteCategoryButton" onclick="confirmDeleteCategory()" disabled>Удалить категорию</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/categories.js') }}"></script>
+</body>
+</html>
+
