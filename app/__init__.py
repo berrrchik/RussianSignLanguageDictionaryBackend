@@ -23,7 +23,6 @@ def create_app(config_class=Config):
     import os
     from pathlib import Path
     
-    # Определяем корневую директорию проекта (на уровень выше app/)
     base_dir = Path(__file__).parent.parent
     
     app = Flask(__name__, 
@@ -31,13 +30,9 @@ def create_app(config_class=Config):
                 static_folder=str(base_dir / 'static'))
     app.config.from_object(config_class)
     
-    # Инициализация конфигурации
     config_class.init_app(app)
-    
-    # Инициализация расширений
     db.init_app(app)
     
-    # Настройка CORS для мобильного приложения
     CORS(app, resources={
         r"/api/*": {
             "origins": "*",  # В production указать конкретные домены
@@ -46,16 +41,14 @@ def create_app(config_class=Config):
         }
     })
     
-    # Регистрация blueprints
-    from app.routes import sync, admin
+    from app.routes import sync, admin, search
     app.register_blueprint(sync.bp, url_prefix='/api/v1/sync')
+    app.register_blueprint(search.bp, url_prefix='/api/v1/search')
     app.register_blueprint(admin.bp, url_prefix='/api/v1/admin')
     
-    # Регистрация HTML страниц административной панели
     from app.routes.admin import admin_pages_bp
     app.register_blueprint(admin_pages_bp, url_prefix='/admin')
     
-    # Маршрут для раздачи видео
     from flask import send_from_directory
     @app.route('/videos/<filename>')
     def serve_video(filename):
@@ -64,7 +57,6 @@ def create_app(config_class=Config):
         video_path = Path(app.config['VIDEO_STORAGE_PATH'])
         return send_from_directory(str(video_path), filename)
     
-    # Настройка Swagger для документации API
     swagger_config = {
         "headers": [],
         "specs": [
@@ -124,13 +116,16 @@ def create_app(config_class=Config):
             {
                 "name": "Синонимы",
                 "description": "Управление синонимами жестов"
+            },
+            {
+                "name": "Поиск",
+                "description": "Endpoints для семантического поиска"
             }
         ]
     }
     
     Swagger(app, config=swagger_config, template=swagger_template)
     
-    # Регистрация обработчиков ошибок
     register_error_handlers(app)
     
     return app
