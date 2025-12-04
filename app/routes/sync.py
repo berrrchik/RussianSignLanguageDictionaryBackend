@@ -2,19 +2,23 @@
 Endpoints для синхронизации мобильного приложения.
 """
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from typing import Tuple, Dict, Any
+from flask import Blueprint, request, current_app
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from app.database import db
 from app.models.category import Category
 from app.models.sign import Sign
 from app.models.sync_metadata import SyncMetadata
+from app.utils.responses import success_response, internal_error_response
+from app.utils.sorting import sort_signs_russian
 
 bp = Blueprint('sync', __name__)
 
 
 @bp.route('/check', methods=['GET'])
-def check_updates():
+def check_updates() -> Tuple[Dict[str, Any], int]:
     """
     Проверка наличия обновлений
     ---
@@ -75,26 +79,18 @@ def check_updates():
                 # Если не удалось распарсить timestamp, считаем что есть обновления
                 has_updates = True
         
-        return jsonify({
-            'success': True,
-            'data': {
-                'last_updated': metadata.last_updated.isoformat() + 'Z',
-                'has_updates': has_updates
-            }
+        return success_response(data={
+            'last_updated': metadata.last_updated.isoformat() + 'Z',
+            'has_updates': has_updates
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': {
-                'code': 'INTERNAL_ERROR',
-                'message': f'Ошибка проверки обновлений: {str(e)}'
-            }
-        }), 500
+        current_app.logger.error(f"Ошибка проверки обновлений: {e}")
+        return internal_error_response(f'Ошибка проверки обновлений: {str(e)}')
 
 
 @bp.route('/data', methods=['GET'])
-def get_all_data():
+def get_all_data() -> Tuple[Dict[str, Any], int]:
     """
     Получение всех данных для синхронизации
     ---
@@ -125,13 +121,13 @@ def get_all_data():
                   example: "2025-01-15T10:30:00Z"
     """
     try:
-        # Загрузка категорий
         categories = Category.query.order_by(Category.order).all()
         
-        # Загрузка жестов с видео и синонимами (eager loading)
         signs = Sign.query.options(
             joinedload(Sign.videos)
-        ).all()
+        ).order_by(func.lower(Sign.word)).all()
+        
+        sorted_signs = sort_signs_russian(signs)
         
         # Получение метаданных
         metadata = SyncMetadata.query.first()
@@ -140,21 +136,58 @@ def get_all_data():
             db.session.add(metadata)
             db.session.commit()
         
-        return jsonify({
-            'success': True,
-            'data': {
-                'categories': [cat.to_dict() for cat in categories],
-                'signs': [sign.to_dict_with_relations() for sign in signs],
-                'last_updated': metadata.last_updated.isoformat() + 'Z'
-            }
+        return success_response(data={
+            'categories': [cat.to_dict() for cat in categories],
+            'signs': [sign.to_dict_with_relations() for sign in sorted_signs],
+            'last_updated': metadata.last_updated.isoformat() + 'Z'
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': {
-                'code': 'INTERNAL_ERROR',
-                'message': f'Ошибка получения данных: {str(e)}'
-            }
-        }), 500
+        current_app.logger.error(f"Ошибка получения данных: {e}")
+        return internal_error_response(f'Ошибка получения данных: {str(e)}')
+
+
+@bp.route('/embeddings', methods=['GET'])
+def get_embeddings() -> Tuple[Dict[str, Any], int]:
+    """
+    Получение embeddings всех жестов
+    ---
+    tags:
+      - Синхронизация
+    responses:
+      200:
+        description: Embeddings всех жестов
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            data:
+              type: object
+              properties:
+                embeddings:
+                  type: object
+                  additionalProperties:
+                    type: array
+                    items:
+                      type: number
+                  example:
+                    sign_001: [0.1, 0.2, 0.3]
+                    sign_002: [0.4, 0.5, 0.6]
+    """
+    try:
+        signs = Sign.query.filter(Sign.embeddings.isnot(None)).order_by(func.lower(Sign.word)).all()
+        sorted_signs = sort_signs_russian(signs)
+        
+        embeddings_dict = {}
+        for sign in sorted_signs:
+            if sign.embeddings:
+                embeddings_dict[sign.id] = sign.embeddings
+        
+        return success_response(data={'embeddings': embeddings_dict})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Ошибка получения embeddings: {e}")
+        return internal_error_response(f'Ошибка получения embeddings: {str(e)}')
 
