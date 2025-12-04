@@ -30,6 +30,7 @@ class Sign(db.Model):
             'description': self.description,
             'category_id': self.category_id,
             'embeddings': self.embeddings,
+            'videos_count': len(self.videos) if self.videos else 0,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }
