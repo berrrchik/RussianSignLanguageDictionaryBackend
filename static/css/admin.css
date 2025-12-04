@@ -616,3 +616,20 @@ table tbody tr:last-child td {
     opacity: 0.5;
 }
 
+/* Поля для загрузки видео при создании жеста */
+.video-field-item {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: #f9f9f9;
+}
+
+.video-field-item .form-group {
+    margin-bottom: 0.5rem;
+}
+
+.video-field-item .form-group:last-child {
+    margin-bottom: 0;
+}
+

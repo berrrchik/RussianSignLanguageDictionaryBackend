@@ -268,22 +268,81 @@ function openCreateSignModal() {
     document.getElementById('signModalTitle').textContent = 'Создать жест';
     document.getElementById('signForm').reset();
     document.getElementById('signId').value = '';
-    document.getElementById('signIdInput').value = '';
     document.getElementById('signFormError').style.display = 'none';
+    document.getElementById('videoFieldsContainer').innerHTML = '';
+    addVideoField();
     document.getElementById('signModal').classList.add('show');
+}
+
+function addVideoField() {
+    const container = document.getElementById('videoFieldsContainer');
+    const existingFields = container.querySelectorAll('.video-field-item');
+    const nextNumber = existingFields.length + 1;
+    
+    const videoField = document.createElement('div');
+    videoField.className = 'video-field-item';
+    videoField.style.cssText = 'border: 1px solid #ddd; border-radius: 4px; padding: 1rem; margin-bottom: 1rem; background: #f9f9f9;';
+    videoField.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <strong>Видео ${nextNumber}</strong>
+            <button type="button" class="btn btn-danger" onclick="removeVideoField(this)" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;">Удалить</button>
+        </div>
+        <div class="form-group" style="margin-bottom: 0.5rem;">
+            <label>Видео файл (MP4, макс. 50MB) <span class="required">*</span></label>
+            <input type="file" class="video-file-input" accept="video/mp4" required>
+        </div>
+        <div class="form-group" style="margin-bottom: 0.5rem;">
+            <label>Описание контекста <span class="required">*</span></label>
+            <textarea class="video-context-input" required></textarea>
+        </div>
+        <div class="form-group">
+            <label>Порядок</label>
+            <input type="number" class="video-order-input" value="${nextNumber}" min="1">
+        </div>
+    `;
+    container.appendChild(videoField);
+    updateVideoNumbers();
+}
+
+function removeVideoField(button) {
+    const container = document.getElementById('videoFieldsContainer');
+    const fields = container.querySelectorAll('.video-field-item');
+    
+    if (fields.length <= 1) {
+        showNotification('Хотя бы одно видео должно быть обязательно', 'error');
+        return;
+    }
+    
+    button.closest('.video-field-item').remove();
+    updateVideoNumbers();
+}
+
+function updateVideoNumbers() {
+    const container = document.getElementById('videoFieldsContainer');
+    const fields = container.querySelectorAll('.video-field-item');
+    fields.forEach((field, index) => {
+        const title = field.querySelector('strong');
+        const orderInput = field.querySelector('.video-order-input');
+        if (title) {
+            title.textContent = `Видео ${index + 1}`;
+        }
+        if (orderInput) {
+            orderInput.value = index + 1;
+        }
+    });
 }
 
 function closeSignModal() {
     document.getElementById('signModal').classList.remove('show');
 }
 
-// Сохранение жеста
 async function saveSign(event) {
     event.preventDefault();
     
-    const signIdInput = document.getElementById('signIdInput').value.trim();
+    const isEdit = !!document.getElementById('signId').value;
+    
     const formData = {
-        id: signIdInput || generateSignId(),
+        id: isEdit ? document.getElementById('signId').value : generateSignId(),
         word: document.getElementById('signWord').value,
         description: document.getElementById('signDescription').value,
         category_id: document.getElementById('signCategory').value
@@ -294,17 +353,55 @@ async function saveSign(event) {
         return;
     }
     
-    const isEdit = !!document.getElementById('signId').value;
-    const url = isEdit 
-        ? `/api/v1/admin/signs/${formData.id}`
-        : '/api/v1/admin/signs';
-    const method = isEdit ? 'PUT' : 'POST';
+    const videoFields = document.querySelectorAll('.video-field-item');
+    const videos = [];
+    if (!isEdit) {
+        if (videoFields.length === 0) {
+            showError('signFormError', 'Необходимо добавить хотя бы одно видео');
+            return;
+        }
+        for (const field of videoFields) {
+            const fileInput = field.querySelector('.video-file-input');
+            const contextInput = field.querySelector('.video-context-input');
+            const orderInput = field.querySelector('.video-order-input');
+            
+            if (fileInput.files.length === 0 || !contextInput.value.trim()) {
+                showError('signFormError', 'Заполните все поля для видео');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            // Валидация файла
+            if (!file.name.endsWith('.mp4')) {
+                showError('signFormError', 'Только файлы MP4 разрешены');
+                return;
+            }
+            
+            if (file.size > 50 * 1024 * 1024) {
+                showError('signFormError', 'Размер файла не должен превышать 50MB');
+                return;
+            }
+            
+            const orderValue = parseInt(orderInput.value) || 1;
+            videos.push({
+                file: file,
+                context_description: contextInput.value.trim(),
+                order: Math.max(0, orderValue - 1)  
+            });
+        }
+    }
     
     const submitButton = document.getElementById('signFormSubmit');
     submitButton.disabled = true;
     submitButton.innerHTML = '<span class="loading"></span> Сохранение...';
     
     try {
+        const url = isEdit 
+            ? `/api/v1/admin/signs/${formData.id}`
+            : '/api/v1/admin/signs';
+        const method = isEdit ? 'PUT' : 'POST';
+        
         const response = await apiRequest(url, {
             method: method,
             body: JSON.stringify(formData)
@@ -314,6 +411,35 @@ async function saveSign(event) {
         
         const data = await response.json();
         if (data.success) {
+            const createdSignId = data.data.id || formData.id;
+            
+            if (!isEdit && videos.length > 0) {
+                for (const video of videos) {
+                    try {
+                        const formDataVideo = new FormData();
+                        formDataVideo.append('file', video.file);
+                        formDataVideo.append('context_description', video.context_description);
+                        formDataVideo.append('order', video.order);
+                        
+                        const token = localStorage.getItem('authToken');
+                        const videoResponse = await fetch(`${window.location.origin}/api/v1/admin/signs/${createdSignId}/videos`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: formDataVideo
+                        });
+                        
+                        if (!videoResponse.ok) {
+                            const videoData = await videoResponse.json();
+                            console.error('Ошибка загрузки видео:', videoData);
+                        }
+                    } catch (videoError) {
+                        console.error('Ошибка загрузки видео:', videoError);
+                    }
+                }
+            }
+            
             showNotification(isEdit ? 'Жест обновлен' : 'Жест создан', 'success');
             closeSignModal();
             loadSigns(currentPage);
@@ -415,6 +541,7 @@ async function updateSign(event) {
         const data = await response.json();
         if (data.success) {
             showNotification('Жест обновлен', 'success');
+            closeEditSignModal();
             loadSigns(currentPage);
         } else {
             showError('editSignFormError', data.error?.message || 'Ошибка обновления');
@@ -473,9 +600,11 @@ function renderVideos(videos) {
         return;
     }
     
-    tbody.innerHTML = videos.map(video => `
+    const sortedVideos = [...videos].sort((a, b) => (a.order || 0) - (b.order || 0));
+    
+    tbody.innerHTML = sortedVideos.map(video => `
         <tr>
-            <td>${video.order}</td>
+            <td>${(video.order || 0) + 1}</td>
             <td>${video.context_description}</td>
             <td><a href="${video.url}" target="_blank">${video.url}</a></td>
             <td>
@@ -488,7 +617,9 @@ function renderVideos(videos) {
 
 function openAddVideoModal() {
     document.getElementById('videoForm').reset();
-    document.getElementById('videoOrder').value = 0;
+    const existingVideos = document.querySelectorAll('#videosTableBody tr:not(:has(td[colspan]))');
+    const nextOrder = existingVideos.length + 1;
+    document.getElementById('videoOrder').value = nextOrder;
     document.getElementById('videoFormError').style.display = 'none';
     document.getElementById('videoModal').classList.add('show');
 }
@@ -522,7 +653,8 @@ async function uploadVideo(event) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('context_description', document.getElementById('videoContextDescription').value);
-    formData.append('order', document.getElementById('videoOrder').value);
+    const orderValue = parseInt(document.getElementById('videoOrder').value) || 1;
+    formData.append('order', Math.max(0, orderValue - 1));
     
     const submitButton = event.target.querySelector('button[type="submit"]');
     submitButton.disabled = true;
@@ -652,15 +784,16 @@ async function searchSignsForSynonym(query) {
     
     synonymSearchTimeout = setTimeout(async () => {
         try {
-            const response = await apiRequest(`/api/v1/admin/signs?per_page=10`);
+            // Используем параметр search для поиска на сервере
+            const encodedQuery = encodeURIComponent(query);
+            const response = await apiRequest(`/api/v1/admin/signs?search=${encodedQuery}&per_page=50`);
             if (!response) return;
             
             const data = await response.json();
             if (data.success) {
+                // Фильтруем только текущий жест, поиск уже выполнен на сервере
                 const filtered = data.data.signs.filter(sign => 
-                    sign.id !== currentSignId &&
-                    (sign.word.toLowerCase().includes(query.toLowerCase()) ||
-                     sign.id.toLowerCase().includes(query.toLowerCase()))
+                    sign.id !== currentSignId
                 );
                 
                 renderSynonymSearchResults(filtered);
