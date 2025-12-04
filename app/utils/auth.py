@@ -1,11 +1,13 @@
 """
 Утилиты для авторизации и JWT токенов.
 """
+from typing import Callable, Any
 import jwt
 from functools import wraps
 from datetime import datetime, timedelta
 from flask import request, jsonify, current_app
 from app.models.admin_user import AdminUser
+from app.utils.responses import error_response
 
 
 def generate_token(user_id: int, secret_key: str, expiration_delta: int) -> str:
@@ -46,14 +48,20 @@ def verify_token(token: str, secret_key: str) -> dict:
     return jwt.decode(token, secret_key, algorithms=['HS256'])
 
 
-def require_auth(f):
+def require_auth(f: Callable) -> Callable:
     """
     Декоратор для защиты endpoints авторизацией.
     
     Проверяет JWT токен из заголовка Authorization: Bearer <token>
+    
+    Args:
+        f: Функция для декорирования
+        
+    Returns:
+        Декорированная функция
     """
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated_function(*args: Any, **kwargs: Any) -> Any:
         token = None
         
         # Получение токена из заголовка
@@ -62,22 +70,10 @@ def require_auth(f):
             try:
                 token = auth_header.split(' ')[1]  # Bearer <token>
             except IndexError:
-                return jsonify({
-                    'success': False,
-                    'error': {
-                        'code': 'INVALID_TOKEN_FORMAT',
-                        'message': 'Неверный формат токена. Используйте: Bearer <token>'
-                    }
-                }), 401
+                return error_response('INVALID_TOKEN_FORMAT', 'Неверный формат токена. Используйте: Bearer <token>', 401)
         
         if not token:
-            return jsonify({
-                'success': False,
-                'error': {
-                    'code': 'TOKEN_REQUIRED',
-                    'message': 'Требуется токен авторизации'
-                }
-            }), 401
+            return error_response('TOKEN_REQUIRED', 'Требуется токен авторизации', 401)
         
         try:
             # Проверка токена
@@ -87,33 +83,15 @@ def require_auth(f):
             # Проверка существования пользователя
             user = AdminUser.query.get(user_id)
             if not user:
-                return jsonify({
-                    'success': False,
-                    'error': {
-                        'code': 'USER_NOT_FOUND',
-                        'message': 'Пользователь не найден'
-                    }
-                }), 401
+                return error_response('USER_NOT_FOUND', 'Пользователь не найден', 401)
             
             # Добавление пользователя в контекст запроса
             request.current_user = user
             
         except jwt.ExpiredSignatureError:
-            return jsonify({
-                'success': False,
-                'error': {
-                    'code': 'TOKEN_EXPIRED',
-                    'message': 'Токен истёк'
-                }
-            }), 401
+            return error_response('TOKEN_EXPIRED', 'Токен истёк', 401)
         except jwt.InvalidTokenError:
-            return jsonify({
-                'success': False,
-                'error': {
-                    'code': 'INVALID_TOKEN',
-                    'message': 'Невалидный токен'
-                }
-            }), 401
+            return error_response('INVALID_TOKEN', 'Невалидный токен', 401)
         
         return f(*args, **kwargs)
     

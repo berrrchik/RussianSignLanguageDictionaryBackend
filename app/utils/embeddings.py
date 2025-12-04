@@ -5,6 +5,8 @@ import time
 import logging
 from typing import List, Optional
 
+from app.constants import TOKENIZER_MAX_LENGTH
+
 logger = logging.getLogger(__name__)
 
 _embedding_generator = None
@@ -51,26 +53,44 @@ class EmbeddingGenerator:
         if description:
             text += " " + description
         
+        text_size = len(text)
+        
         # Токенизация
         inputs = self.tokenizer(
             text,
             return_tensors="pt",
             truncation=True,
-            max_length=512,
+            max_length=TOKENIZER_MAX_LENGTH,
             padding=True
         )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         
         # Генерация embeddings
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-            # Берем embedding для [CLS] токена (индекс 0)
-            embedding = outputs.last_hidden_state[0][0].cpu().numpy().tolist()
-        
-        elapsed_time = time.time() - start_time
-        logger.info(f"Генерация embeddings заняла {elapsed_time:.3f} секунд")
-        
-        return embedding
+        try:
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                embedding = outputs.last_hidden_state[0][0].cpu().numpy().tolist()
+            
+            elapsed_time = time.time() - start_time
+            success = True
+            
+            logger.info(
+                f"Генерация embeddings успешна: "
+                f"время={elapsed_time:.3f}с, "
+                f"размер_текста={text_size} символов, "
+                f"размер_embeddings={len(embedding)}"
+            )
+            
+            return embedding
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            logger.error(
+                f"Ошибка генерации embeddings: "
+                f"время={elapsed_time:.3f}с, "
+                f"размер_текста={text_size} символов, "
+                f"ошибка={str(e)}"
+            )
+            raise
 
 
 def get_embedding_generator() -> Optional[EmbeddingGenerator]:

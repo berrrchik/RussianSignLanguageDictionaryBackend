@@ -3,6 +3,16 @@
 """
 from typing import Dict, List, Optional
 
+from app.constants import (
+    MAX_WORD_LENGTH,
+    MAX_CATEGORY_NAME_LENGTH,
+    MAX_CATEGORY_ID_LENGTH,
+    MAX_DESCRIPTION_LENGTH,
+    MAX_CONTEXT_DESCRIPTION_LENGTH,
+    VIDEO_MAX_SIZE,
+    EMBEDDING_DIMENSION
+)
+
 
 def validate_sign_data(data: Dict) -> List[str]:
     """
@@ -20,15 +30,15 @@ def validate_sign_data(data: Dict) -> List[str]:
         word = data['word']
         if not word or not isinstance(word, str):
             errors.append('Поле "word" должно быть непустой строкой')
-        elif len(word) > 200:
-            errors.append('Поле "word" не должно превышать 200 символов')
+        elif len(word) > MAX_WORD_LENGTH:
+            errors.append(f'Поле "word" не должно превышать {MAX_WORD_LENGTH} символов')
     
     if 'category_id' in data:
         category_id = data['category_id']
         if not category_id or not isinstance(category_id, str):
             errors.append('Поле "category_id" должно быть непустой строкой')
-        elif len(category_id) > 50:
-            errors.append('Поле "category_id" не должно превышать 50 символов')
+        elif len(category_id) > MAX_CATEGORY_ID_LENGTH:
+            errors.append(f'Поле "category_id" не должно превышать {MAX_CATEGORY_ID_LENGTH} символов')
     
     if 'description' in data and data['description'] is not None:
         if not isinstance(data['description'], str):
@@ -53,8 +63,8 @@ def validate_category_data(data: Dict) -> List[str]:
         name = data['name']
         if not name or not isinstance(name, str):
             errors.append('Поле "name" должно быть непустой строкой')
-        elif len(name) > 200:
-            errors.append('Поле "name" не должно превышать 200 символов')
+        elif len(name) > MAX_CATEGORY_NAME_LENGTH:
+            errors.append(f'Поле "name" не должно превышать {MAX_CATEGORY_NAME_LENGTH} символов')
     
     if 'order' in data:
         order = data['order']
@@ -86,11 +96,11 @@ def validate_video_data(data: Dict, file=None) -> List[str]:
         elif not file.filename.lower().endswith('.mp4'):
             errors.append('Поддерживается только формат MP4')
         
-        # Проверка размера файла (50MB)
+        # Проверка размера файла
         if hasattr(file, 'content_length') and file.content_length:
-            max_size = 50 * 1024 * 1024  # 50MB
-            if file.content_length > max_size:
-                errors.append(f'Размер файла не должен превышать 50MB')
+            if file.content_length > VIDEO_MAX_SIZE:
+                max_size_mb = VIDEO_MAX_SIZE // (1024 * 1024)
+                errors.append(f'Размер файла не должен превышать {max_size_mb}MB')
     
     if 'context_description' in data:
         context_description = data.get('context_description')
@@ -121,10 +131,34 @@ def validate_embeddings(embeddings: Optional[List[float]]) -> bool:
     if not isinstance(embeddings, list):
         return False
     
-    if len(embeddings) != 768:
+    if len(embeddings) != EMBEDDING_DIMENSION:
         return False
     
     if not all(isinstance(x, (int, float)) for x in embeddings):
+        return False
+    
+    return True
+
+
+def validate_text(text: str, max_length: int = MAX_DESCRIPTION_LENGTH) -> bool:
+    """
+    Валидация текста для генерации embeddings.
+    
+    Args:
+        text: Текст для валидации
+        max_length: Максимальная длина текста
+        
+    Returns:
+        True если валидация прошла, False иначе
+    """
+    if not text or not isinstance(text, str):
+        return False
+    
+    text = text.strip()
+    if not text:
+        return False
+    
+    if len(text) > max_length:
         return False
     
     return True
