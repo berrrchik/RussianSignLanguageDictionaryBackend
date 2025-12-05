@@ -3,6 +3,7 @@
 """
 from datetime import datetime
 from app.database import db
+from app.utils.formatters import format_datetime
 
 
 class SignSynonym(db.Model):
@@ -27,7 +28,7 @@ class SignSynonym(db.Model):
             'id': self.id,
             'sign_id_1': self.sign_id_1,
             'sign_id_2': self.sign_id_2,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': format_datetime(self.created_at),
         }
     
     def __repr__(self):

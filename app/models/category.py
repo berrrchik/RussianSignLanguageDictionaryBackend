@@ -3,6 +3,7 @@
 """
 from datetime import datetime
 from app.database import db
+from app.utils.formatters import format_datetime
 
 
 class Category(db.Model):
@@ -25,8 +26,9 @@ class Category(db.Model):
             'id': self.id,
             'name': self.name,
             'order': self.order,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'sign_count': len(self.signs) if self.signs else 0,
+            'created_at': format_datetime(self.created_at),
+            'updated_at': format_datetime(self.updated_at),
         }
     
     def __repr__(self):

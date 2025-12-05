@@ -3,6 +3,7 @@
 """
 from datetime import datetime
 from app.database import db
+from app.utils.formatters import format_datetime
 
 
 class SignVideo(db.Model):
@@ -21,13 +22,18 @@ class SignVideo(db.Model):
     
     def to_dict(self):
         """Преобразование в словарь для JSON."""
+        # Гарантируем наличие context_description
+        context_desc = self.context_description
+        if not context_desc or (isinstance(context_desc, str) and context_desc.strip() == ''):
+            context_desc = f"Видео {self.order + 1}" if self.order > 0 else "Основное видео"
+        
         return {
             'id': self.id,
             'url': self.url,
-            'context_description': self.context_description,
+            'context_description': context_desc,
             'order': self.order,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': format_datetime(self.created_at),
+            'updated_at': format_datetime(self.updated_at),
         }
     
     def __repr__(self):

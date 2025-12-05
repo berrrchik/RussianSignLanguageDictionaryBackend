@@ -3,6 +3,7 @@
 """
 from datetime import datetime
 from app.database import db
+from app.utils.formatters import format_datetime
 
 
 class SyncMetadata(db.Model):
@@ -18,7 +19,7 @@ class SyncMetadata(db.Model):
         """Преобразование в словарь для JSON."""
         return {
             'id': self.id,
-            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+            'last_updated': format_datetime(self.last_updated),
             'version': self.version,
         }
     

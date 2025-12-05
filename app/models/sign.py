@@ -4,6 +4,7 @@
 from datetime import datetime
 from sqlalchemy.dialects.postgresql import JSONB
 from app.database import db
+from app.utils.formatters import format_datetime
 
 
 class Sign(db.Model):
@@ -31,8 +32,8 @@ class Sign(db.Model):
             'category_id': self.category_id,
             'embeddings': self.embeddings,
             'videos_count': len(self.videos) if self.videos else 0,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': format_datetime(self.created_at),
+            'updated_at': format_datetime(self.updated_at),
         }
     
     def to_dict_with_relations(self):
@@ -62,8 +63,8 @@ class Sign(db.Model):
             'category_id': self.category_id,
             'videos': [video.to_dict() for video in self.videos],
             'synonyms': synonyms,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': format_datetime(self.created_at),
+            'updated_at': format_datetime(self.updated_at),
         }
     
     def __repr__(self):
