@@ -17,10 +17,46 @@ bp = Blueprint('admin_auth', __name__)
 @bp.route('/auth/login', methods=['POST'])
 def login() -> Tuple[Dict[str, Any], int]:
     """
-    Авторизация администратора.
-    
-    Returns:
-        JSON ответ с токеном или ошибкой
+    Авторизация администратора
+    ---
+    tags:
+      - Авторизация
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: admin
+            password:
+              type: string
+              example: password
+    responses:
+      200:
+        description: Успешная авторизация
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            data:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJ0eXAiOiJKV1QiLCJhbGc..."
+                expires_in:
+                  type: integer
+                  example: 3600
+      401:
+        description: Неверные учетные данные
     """
     try:
         data = request.get_json()

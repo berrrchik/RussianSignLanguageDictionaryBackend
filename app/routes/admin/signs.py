@@ -29,10 +29,38 @@ bp = Blueprint('admin_signs', __name__)
 @require_auth
 def list_signs() -> Tuple[Dict[str, Any], int]:
     """
-    Получение списка жестов с пагинацией.
-    
-    Returns:
-        JSON ответ со списком жестов
+    Получение списка жестов с пагинацией
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+        description: Номер страницы
+      - name: per_page
+        in: query
+        type: integer
+        default: 50
+        description: Количество на странице
+      - name: category_id
+        in: query
+        type: string
+        required: false
+        description: Фильтр по категории
+      - name: search
+        in: query
+        type: string
+        required: false
+        description: Поиск по слову или ID
+    responses:
+      200:
+        description: Список жестов
+      401:
+        description: Неавторизован
     """
     try:
         page = request.args.get('page', DEFAULT_PAGE, type=int)
@@ -81,13 +109,23 @@ def list_signs() -> Tuple[Dict[str, Any], int]:
 @require_auth
 def get_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Получение жеста по ID.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ с данными жеста
+    Получение жеста по ID
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+        description: ID жеста
+    responses:
+      200:
+        description: Данные жеста
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -101,10 +139,40 @@ def get_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def create_sign() -> Tuple[Dict[str, Any], int]:
     """
-    Создание нового жеста.
-    
-    Returns:
-        JSON ответ с созданным жестом
+    Создание нового жеста
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - id
+            - word
+            - category_id
+          properties:
+            id:
+              type: string
+              example: "sign_001"
+            word:
+              type: string
+              example: "привет"
+            description:
+              type: string
+              example: "Приветствие"
+            category_id:
+              type: string
+              example: "greetings"
+    responses:
+      201:
+        description: Жест создан
+      400:
+        description: Ошибка валидации
     """
     try:
         data = request.get_json()
@@ -156,13 +224,34 @@ def create_sign() -> Tuple[Dict[str, Any], int]:
 @require_auth
 def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Обновление жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ с обновленным жестом
+    Обновление жеста
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            word:
+              type: string
+            description:
+              type: string
+            category_id:
+              type: string
+    responses:
+      200:
+        description: Жест обновлён
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -207,13 +296,22 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Удаление жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ об успешном удалении
+    Удаление жеста
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Жест удалён
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -234,13 +332,24 @@ def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def regenerate_embeddings(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Перегенерация embeddings для жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ с обновленным жестом
+    Перегенерация embeddings для жеста
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Embeddings перегенерированы
+      404:
+        description: Жест не найден
+      503:
+        description: Модель недоступна
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -266,10 +375,66 @@ def regenerate_embeddings(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def regenerate_embeddings_by_word() -> Tuple[Dict[str, Any], int]:
     """
-    Перегенерация embeddings для жеста по слову.
-    
-    Returns:
-        JSON ответ с обновленным жестом
+    Перегенерация embeddings для жеста по слову
+    ---
+    tags:
+      - Жесты
+    security:
+      - Bearer: []
+    parameters:
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - word
+          properties:
+            word:
+              type: string
+              description: Слово жеста для перегенерации embeddings
+              example: "привет"
+    responses:
+      200:
+        description: Embeddings перегенерированы
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: true
+            data:
+              type: object
+              properties:
+                id:
+                  type: string
+                word:
+                  type: string
+                embeddings:
+                  type: array
+                  items:
+                    type: number
+      404:
+        description: Жест не найден
+        schema:
+          type: object
+          properties:
+            success:
+              type: boolean
+              example: false
+            error:
+              type: object
+              properties:
+                code:
+                  type: string
+                  example: "NOT_FOUND"
+                message:
+                  type: string
+                  example: "Жест с таким словом не найден"
+      503:
+        description: Модель недоступна
+      500:
+        description: Ошибка генерации
     """
     try:
         data = request.get_json()

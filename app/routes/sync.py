@@ -13,6 +13,7 @@ from app.models.sign import Sign
 from app.models.sync_metadata import SyncMetadata
 from app.utils.responses import success_response, internal_error_response
 from app.utils.sorting import sort_signs_russian
+from app.utils.formatters import format_datetime
 
 bp = Blueprint('sync', __name__)
 
@@ -80,7 +81,7 @@ def check_updates() -> Tuple[Dict[str, Any], int]:
                 has_updates = True
         
         return success_response(data={
-            'last_updated': metadata.last_updated.isoformat() + 'Z',
+            'last_updated': format_datetime(metadata.last_updated),
             'has_updates': has_updates
         })
     except Exception as e:
@@ -129,6 +130,14 @@ def get_all_data() -> Tuple[Dict[str, Any], int]:
         
         sorted_signs = sort_signs_russian(signs)
         
+        # Валидация данных
+        signs_without_videos = [s for s in sorted_signs if not s.videos]
+        if signs_without_videos:
+            current_app.logger.warning(
+                f"Найдено {len(signs_without_videos)} жестов без видео: "
+                f"{[s.id for s in signs_without_videos[:5]]}"
+            )
+        
         # Получение метаданных
         metadata = SyncMetadata.query.first()
         if not metadata:
@@ -139,7 +148,7 @@ def get_all_data() -> Tuple[Dict[str, Any], int]:
         return success_response(data={
             'categories': [cat.to_dict() for cat in categories],
             'signs': [sign.to_dict_with_relations() for sign in sorted_signs],
-            'last_updated': metadata.last_updated.isoformat() + 'Z'
+            'last_updated': format_datetime(metadata.last_updated)
         })
     except Exception as e:
         db.session.rollback()

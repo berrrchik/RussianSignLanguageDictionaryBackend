@@ -28,13 +28,22 @@ bp = Blueprint('admin_videos', __name__)
 @require_auth
 def list_videos(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Получение списка видео для жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ со списком видео
+    Получение списка видео для жеста
+    ---
+    tags:
+      - Видео
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Список видео
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -49,13 +58,40 @@ def list_videos(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Загрузка видео для жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ с загруженным видео
+    Загрузка видео для жеста
+    ---
+    tags:
+      - Видео
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: MP4 видео файл (макс. 50MB)
+      - name: context_description
+        in: formData
+        type: string
+        required: true
+        description: Описание контекста использования
+      - name: order
+        in: formData
+        type: integer
+        required: false
+        default: 0
+        description: Порядок отображения
+    responses:
+      201:
+        description: Видео загружено
+      400:
+        description: Ошибка валидации
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -122,13 +158,32 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def update_video(video_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Обновление видео.
-    
-    Args:
-        video_id: ID видео
-        
-    Returns:
-        JSON ответ с обновленным видео
+    Обновление видео
+    ---
+    tags:
+      - Видео
+    security:
+      - Bearer: []
+    parameters:
+      - name: video_id
+        in: path
+        type: integer
+        required: true
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          properties:
+            context_description:
+              type: string
+            order:
+              type: integer
+    responses:
+      200:
+        description: Видео обновлено
+      404:
+        description: Видео не найдено
     """
     try:
         video = SignVideo.query.get_or_404(video_id)
@@ -158,13 +213,22 @@ def update_video(video_id: int) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def delete_video(video_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Удаление видео.
-    
-    Args:
-        video_id: ID видео
-        
-    Returns:
-        JSON ответ об успешном удалении
+    Удаление видео
+    ---
+    tags:
+      - Видео
+    security:
+      - Bearer: []
+    parameters:
+      - name: video_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Видео удалено
+      404:
+        description: Видео не найдено
     """
     try:
         video = SignVideo.query.get_or_404(video_id)

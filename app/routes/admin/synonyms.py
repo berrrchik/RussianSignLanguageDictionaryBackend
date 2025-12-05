@@ -23,13 +23,22 @@ bp = Blueprint('admin_synonyms', __name__)
 @require_auth
 def list_synonyms(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Получение списка синонимов для жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ со списком синонимов
+    Получение списка синонимов для жеста
+    ---
+    tags:
+      - Синонимы
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Список синонимов
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -59,13 +68,35 @@ def list_synonyms(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def add_synonym(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Добавление синонима для жеста.
-    
-    Args:
-        sign_id: ID жеста
-        
-    Returns:
-        JSON ответ об успешном добавлении
+    Добавление синонима для жеста
+    ---
+    tags:
+      - Синонимы
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+      - name: body
+        in: body
+        required: true
+        schema:
+          type: object
+          required:
+            - synonym_sign_id
+          properties:
+            synonym_sign_id:
+              type: string
+              example: "sign_002"
+    responses:
+      201:
+        description: Синоним добавлен
+      400:
+        description: Ошибка валидации
+      404:
+        description: Жест не найден
     """
     try:
         sign = Sign.query.get_or_404(sign_id)
@@ -117,14 +148,26 @@ def add_synonym(sign_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def delete_synonym(sign_id: str, synonym_id: str) -> Tuple[Dict[str, Any], int]:
     """
-    Удаление связи синонимов.
-    
-    Args:
-        sign_id: ID первого жеста
-        synonym_id: ID второго жеста
-        
-    Returns:
-        JSON ответ об успешном удалении
+    Удаление связи синонимов
+    ---
+    tags:
+      - Синонимы
+    security:
+      - Bearer: []
+    parameters:
+      - name: sign_id
+        in: path
+        type: string
+        required: true
+      - name: synonym_id
+        in: path
+        type: string
+        required: true
+    responses:
+      200:
+        description: Связь синонимов удалена
+      404:
+        description: Связь не найдена
     """
     try:
         # Удаление обеих связей (двусторонних)
@@ -155,13 +198,22 @@ def delete_synonym(sign_id: str, synonym_id: str) -> Tuple[Dict[str, Any], int]:
 @require_auth
 def delete_synonym_by_id(synonym_id: int) -> Tuple[Dict[str, Any], int]:
     """
-    Удаление связи синонимов по ID связи.
-    
-    Args:
-        synonym_id: ID связи синонимов
-        
-    Returns:
-        JSON ответ об успешном удалении
+    Удаление связи синонимов по ID связи
+    ---
+    tags:
+      - Синонимы
+    security:
+      - Bearer: []
+    parameters:
+      - name: synonym_id
+        in: path
+        type: integer
+        required: true
+    responses:
+      200:
+        description: Связь синонимов удалена
+      404:
+        description: Связь не найдена
     """
     try:
         synonym = SignSynonym.query.get_or_404(synonym_id)
