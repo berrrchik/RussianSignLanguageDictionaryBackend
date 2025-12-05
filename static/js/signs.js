@@ -414,7 +414,13 @@ async function saveSign(event) {
             const createdSignId = data.data.id || formData.id;
             
             if (!isEdit && videos.length > 0) {
-                for (const video of videos) {
+                const videoResults = {
+                    success: [],
+                    failed: []
+                };
+                
+                for (let i = 0; i < videos.length; i++) {
+                    const video = videos[i];
                     try {
                         const formDataVideo = new FormData();
                         formDataVideo.append('file', video.file);
@@ -432,15 +438,61 @@ async function saveSign(event) {
                         
                         if (!videoResponse.ok) {
                             const videoData = await videoResponse.json();
+                            const errorMessage = videoData.error?.message || `Ошибка загрузки видео ${i + 1}`;
+                            videoResults.failed.push({
+                                index: i + 1,
+                                fileName: video.file.name,
+                                error: errorMessage
+                            });
                             console.error('Ошибка загрузки видео:', videoData);
+                        } else {
+                            videoResults.success.push({
+                                index: i + 1,
+                                fileName: video.file.name
+                            });
                         }
                     } catch (videoError) {
+                        videoResults.failed.push({
+                            index: i + 1,
+                            fileName: video.file.name,
+                            error: videoError.message || 'Ошибка соединения с сервером'
+                        });
                         console.error('Ошибка загрузки видео:', videoError);
                     }
                 }
+                
+                // Показываем результаты загрузки видео
+                if (videoResults.failed.length === 0) {
+                    // Все видео загружены успешно
+                    showNotification(isEdit ? 'Жест обновлен' : 'Жест создан', 'success');
+                } else {
+                    // Есть ошибки загрузки видео
+                    const errorDetails = videoResults.failed.map(v => 
+                        `Видео ${v.index} (${v.fileName}): ${v.error}`
+                    ).join('; ');
+                    
+                    // Логируем детали в консоль
+                    console.error('Детали ошибок загрузки видео:', errorDetails);
+                    
+                    if (videoResults.success.length === 0) {
+                        // Все видео не загрузились
+                        showNotification(
+                            `Жест создан, но не удалось загрузить ни одного видео (${videoResults.failed.length} ошибок). Проверьте консоль для деталей.`,
+                            'error'
+                        );
+                    } else {
+                        // Частичная загрузка
+                        showNotification(
+                            `Жест создан. Загружено видео: ${videoResults.success.length}/${videos.length}. Не удалось загрузить: ${videoResults.failed.length}. Проверьте консоль для деталей.`,
+                            'error'
+                        );
+                    }
+                }
+            } else {
+                // Нет видео для загрузки или режим редактирования
+                showNotification(isEdit ? 'Жест обновлен' : 'Жест создан', 'success');
             }
             
-            showNotification(isEdit ? 'Жест обновлен' : 'Жест создан', 'success');
             closeSignModal();
             loadSigns(currentPage);
         } else {
