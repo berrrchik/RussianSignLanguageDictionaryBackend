@@ -43,14 +43,18 @@ def list_synonyms(sign_id: str) -> Tuple[Dict[str, Any], int]:
     try:
         sign = Sign.query.get_or_404(sign_id)
         
-        # Получение всех связей синонимов
         synonyms_query = SignSynonym.query.filter(
             (SignSynonym.sign_id_1 == sign_id) | (SignSynonym.sign_id_2 == sign_id)
         ).all()
         
+        seen_ids = set()
         synonyms = []
         for synonym in synonyms_query:
             other_sign_id = synonym.sign_id_2 if synonym.sign_id_1 == sign_id else synonym.sign_id_1
+            if other_sign_id in seen_ids:
+                continue
+            seen_ids.add(other_sign_id)
+            
             other_sign = Sign.query.get(other_sign_id)
             if other_sign:
                 synonyms.append({

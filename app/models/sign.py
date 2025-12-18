@@ -40,15 +40,18 @@ class Sign(db.Model):
         """Преобразование в словарь для JSON с видео и синонимами."""
         from app.models.sign_synonym import SignSynonym
         
-        # Получение синонимов (через sign_id_1 или sign_id_2)
         synonyms_query = SignSynonym.query.filter(
             (SignSynonym.sign_id_1 == self.id) | (SignSynonym.sign_id_2 == self.id)
         ).all()
         
+        seen_ids = set()
         synonyms = []
         for synonym in synonyms_query:
-            # Определяем ID другого жеста
             other_sign_id = synonym.sign_id_2 if synonym.sign_id_1 == self.id else synonym.sign_id_1
+            if other_sign_id in seen_ids:
+                continue
+            seen_ids.add(other_sign_id)
+            
             other_sign = Sign.query.get(other_sign_id)
             if other_sign:
                 synonyms.append({
