@@ -464,7 +464,9 @@ async function saveSign(event) {
                 // Показываем результаты загрузки видео
                 if (videoResults.failed.length === 0) {
                     // Все видео загружены успешно
-                    showNotification(isEdit ? 'Жест обновлен' : 'Жест создан', 'success');
+                    showNotification('Жест создан', 'success');
+                    closeSignModal();
+                    loadSigns(currentPage);
                 } else {
                     // Есть ошибки загрузки видео
                     const errorDetails = videoResults.failed.map(v => 
@@ -475,26 +477,33 @@ async function saveSign(event) {
                     console.error('Детали ошибок загрузки видео:', errorDetails);
                     
                     if (videoResults.success.length === 0) {
-                        // Все видео не загрузились
-                        showNotification(
-                            `Жест создан, но не удалось загрузить ни одного видео (${videoResults.failed.length} ошибок). Проверьте консоль для деталей.`,
-                            'error'
-                        );
+                        // Ни одно видео не загрузилось - удаляем созданный жест
+                        try {
+                            await apiRequest(`/api/v1/admin/signs/${createdSignId}`, {
+                                method: 'DELETE'
+                            });
+                        } catch (deleteError) {
+                            console.error('Ошибка удаления жеста после неудачной загрузки видео:', deleteError);
+                        }
+                        
+                        showError('signFormError', `Не удалось загрузить видео. Жест не создан. Ошибка: ${videoResults.failed[0].error}`);
+                        return;
                     } else {
-                        // Частичная загрузка
+                        // Частичная загрузка - хотя бы одно видео загружено
                         showNotification(
                             `Жест создан. Загружено видео: ${videoResults.success.length}/${videos.length}. Не удалось загрузить: ${videoResults.failed.length}. Проверьте консоль для деталей.`,
                             'error'
                         );
+                        closeSignModal();
+                        loadSigns(currentPage);
                     }
                 }
             } else {
-                // Нет видео для загрузки или режим редактирования
-                showNotification(isEdit ? 'Жест обновлен' : 'Жест создан', 'success');
+                // Режим редактирования без загрузки новых видео
+                showNotification('Жест обновлен', 'success');
+                closeSignModal();
+                loadSigns(currentPage);
             }
-            
-            closeSignModal();
-            loadSigns(currentPage);
         } else {
             showError('signFormError', data.error?.message || 'Ошибка сохранения');
         }
@@ -574,6 +583,13 @@ function closeEditSignModal() {
 async function updateSign(event) {
     event.preventDefault();
     
+    // Проверяем наличие видео
+    const videosRows = document.querySelectorAll('#videosTableBody tr:not(:has(td[colspan]))');
+    if (videosRows.length === 0) {
+        showError('editSignFormError', '⚠️ Жест должен иметь хотя бы одно видео. Пожалуйста, загрузите видео.');
+        return;
+    }
+    
     const formData = {
         word: document.getElementById('editSignWord').value,
         description: document.getElementById('editSignDescription').value,
@@ -648,7 +664,8 @@ async function loadVideos(signId) {
 function renderVideos(videos) {
     const tbody = document.getElementById('videosTableBody');
     if (videos.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem;">Видео не найдены</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem; color: #dc3545;"><strong>⚠️ Видео не найдены. Необходимо загрузить хотя бы одно видео!</strong></td></tr>';
+        updateEditSignSaveButton();
         return;
     }
     
@@ -665,6 +682,34 @@ function renderVideos(videos) {
             </td>
         </tr>
     `).join('');
+    
+    updateEditSignSaveButton();
+}
+
+// Обновление состояния кнопки сохранения в зависимости от наличия видео
+function updateEditSignSaveButton() {
+    const videosRows = document.querySelectorAll('#videosTableBody tr:not(:has(td[colspan]))');
+    const saveButton = document.querySelector('#editSignForm button[type="submit"]');
+    const errorElement = document.getElementById('editSignFormError');
+    
+    if (videosRows.length === 0) {
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.title = 'Необходимо загрузить хотя бы одно видео';
+        }
+        if (errorElement) {
+            errorElement.textContent = '⚠️ Жест должен иметь хотя бы одно видео. Пожалуйста, загрузите видео.';
+            errorElement.style.display = 'block';
+        }
+    } else {
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.title = '';
+        }
+        if (errorElement) {
+            errorElement.style.display = 'none';
+        }
+    }
 }
 
 function openAddVideoModal() {
@@ -731,7 +776,8 @@ async function uploadVideo(event) {
         if (data.success) {
             showNotification('Видео загружено', 'success');
             closeVideoModal();
-            loadVideos(currentSignId);
+            await loadVideos(currentSignId);
+            updateEditSignSaveButton();
         } else {
             showError('videoFormError', data.error?.message || 'Ошибка загрузки видео');
         }
@@ -756,7 +802,16 @@ function closeViewVideoModal() {
 }
 
 async function deleteVideo(videoId) {
-    if (!confirm('Вы уверены, что хотите удалить это видео?')) {
+    // Проверяем количество видео
+    const videosRows = document.querySelectorAll('#videosTableBody tr:not(:has(td[colspan]))');
+    const isLastVideo = videosRows.length <= 1;
+    
+    let confirmMessage = 'Вы уверены, что хотите удалить это видео?';
+    if (isLastVideo) {
+        confirmMessage = '⚠️ Это последнее видео для данного жеста!\n\nПосле удаления вам необходимо будет загрузить новое видео, иначе жест нельзя будет сохранить.\n\nПродолжить удаление?';
+    }
+    
+    if (!confirm(confirmMessage)) {
         return;
     }
     
@@ -771,6 +826,16 @@ async function deleteVideo(videoId) {
         if (data.success) {
             showNotification('Видео удалено', 'success');
             loadVideos(currentSignId);
+            
+            // Если удалили последнее видео, показываем предупреждение и открываем модальное окно добавления
+            if (isLastVideo) {
+                setTimeout(() => {
+                    showNotification('⚠️ Необходимо загрузить новое видео для жеста', 'error');
+                    openAddVideoModal();
+                }, 500);
+            }
+            
+            updateEditSignSaveButton();
         } else {
             showNotification(data.error?.message || 'Ошибка удаления', 'error');
         }

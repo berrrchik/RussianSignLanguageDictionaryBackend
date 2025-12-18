@@ -175,7 +175,26 @@ body {
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow-x: auto;
+}
+
+/* Стили для таблицы видео в модальном окне */
+#videosTableBody td:nth-child(3) {
+    max-width: 200px;
     overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#videosTableBody td:nth-child(3) a {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#videosTableBody td:nth-child(4) {
+    white-space: nowrap;
+    min-width: 180px;
 }
 
 table {
@@ -616,7 +635,6 @@ table tbody tr:last-child td {
     opacity: 0.5;
 }
 
-/* Поля для загрузки видео при создании жеста */
 .video-field-item {
     border: 1px solid #ddd;
     border-radius: 4px;
