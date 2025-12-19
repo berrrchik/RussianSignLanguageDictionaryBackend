@@ -7,13 +7,15 @@ let currentSignId = null;
 let searchTimeout = null;
 
 // Проверка авторизации при загрузке
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     const token = localStorage.getItem('authToken');
     if (!token) {
         window.location.href = '/admin/login';
         return;
     }
-    loadCategories();
+    // Важно: сначала загружаем категории, потом жесты
+    // иначе в таблице жестов категории будут показаны как "Не указана"
+    await loadCategories();
     loadSigns();
 });
 
