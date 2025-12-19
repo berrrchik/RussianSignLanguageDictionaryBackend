@@ -1,5 +1,7 @@
 """
 Flask приложение для системы управления словарём русского жестового языка.
+Автор: Berchik Anastasia Sergeevna
+Практическая работа №4 - Loki + Grafana
 """
 from flask import Flask
 from flask_cors import CORS
@@ -32,6 +34,18 @@ def create_app(config_class=Config):
     
     config_class.init_app(app)
     db.init_app(app)
+    
+    # =============================================================================
+    # ПРАКТИЧЕСКАЯ РАБОТА №4 - ЗАКОММЕНТИРОВАНО
+    # Настройка структурированного логирования для Loki
+    # =============================================================================
+    # from app.utils.logging_config import setup_logging, log_request
+    # setup_logging(app)
+    # 
+    # # Регистрация логирования запросов
+    # before_request, after_request = log_request()
+    # app.before_request(before_request)
+    # app.after_request(after_request)
     
     CORS(app, resources={
         r"/api/*": {
@@ -95,7 +109,11 @@ def create_app(config_class=Config):
         "tags": [
             {
                 "name": "Синхронизация",
-                "description": "Endpoints для синхронизации мобильного приложения"
+                "description": "Endpoints для синхронизации мобильного приложения (legacy с ISO 8601 датами)"
+            },
+            {
+                "name": "Синхронизация (Raw)",
+                "description": "Оптимизированные endpoints для мобильных клиентов (Unix timestamp, без обертки)"
             },
             {
                 "name": "Авторизация",
@@ -242,6 +260,93 @@ def create_app(config_class=Config):
                     "error": {"$ref": "#/definitions/Error"}
                 },
                 "required": ["success", "error"]
+            },
+            "CategoryRaw": {
+                "type": "object",
+                "description": "Категория (Raw формат с Unix timestamp)",
+                "properties": {
+                    "id": {"type": "string", "example": "greetings"},
+                    "name": {"type": "string", "example": "Приветствия"},
+                    "order": {"type": "integer", "example": 1},
+                    "sign_count": {"type": "integer", "example": 15},
+                    "created_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245},
+                    "updated_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
+                },
+                "required": ["id", "name", "order", "sign_count", "created_at", "updated_at"]
+            },
+            "SignVideoRaw": {
+                "type": "object",
+                "description": "Видео жеста (Raw формат с Unix timestamp)",
+                "properties": {
+                    "id": {"type": "integer", "example": 1},
+                    "url": {"type": "string", "example": "http://example.com/videos/sign_001_video_1.mp4"},
+                    "context_description": {"type": "string", "example": "Основное видео"},
+                    "order": {"type": "integer", "example": 0},
+                    "created_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245},
+                    "updated_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
+                },
+                "required": ["id", "url", "context_description", "order", "created_at", "updated_at"]
+            },
+            "SignRaw": {
+                "type": "object",
+                "description": "Жест (Raw формат с Unix timestamp)",
+                "properties": {
+                    "id": {"type": "string", "example": "sign_001"},
+                    "word": {"type": "string", "example": "привет"},
+                    "description": {"type": "string", "example": "Приветствие"},
+                    "category_id": {"type": "string", "example": "greetings"},
+                    "videos": {
+                        "type": "array",
+                        "items": {"$ref": "#/definitions/SignVideoRaw"}
+                    },
+                    "synonyms": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string", "example": "sign_002"},
+                                "word": {"type": "string", "example": "здравствуй"}
+                            }
+                        }
+                    },
+                    "created_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245},
+                    "updated_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
+                },
+                "required": ["id", "word", "category_id", "videos", "synonyms", "created_at", "updated_at"]
+            },
+            "SyncMetadataRaw": {
+                "type": "object",
+                "description": "Метаданные синхронизации (Raw формат)",
+                "properties": {
+                    "last_updated": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245},
+                    "has_updates": {"type": "boolean", "example": True}
+                },
+                "required": ["last_updated", "has_updates"]
+            },
+            "SyncDataRaw": {
+                "type": "object",
+                "description": "Полные данные синхронизации (Raw формат)",
+                "properties": {
+                    "categories": {
+                        "type": "array",
+                        "items": {"$ref": "#/definitions/CategoryRaw"}
+                    },
+                    "signs": {
+                        "type": "array",
+                        "items": {"$ref": "#/definitions/SignRaw"}
+                    },
+                    "last_updated": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
+                },
+                "required": ["categories", "signs", "last_updated"]
+            },
+            "RawErrorResponse": {
+                "type": "object",
+                "description": "Ошибка для Raw endpoints (без обертки)",
+                "properties": {
+                    "error": {"type": "string", "example": "ValidationError"},
+                    "message": {"type": "string", "example": "Invalid timestamp format"}
+                },
+                "required": ["error", "message"]
             }
         }
     }
