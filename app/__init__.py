@@ -5,6 +5,7 @@ Flask приложение для системы управления слова
 """
 from flask import Flask
 from flask_cors import CORS
+from flask_compress import Compress
 from flasgger import Swagger
 
 from app.config import Config
@@ -34,6 +35,9 @@ def create_app(config_class=Config):
     
     config_class.init_app(app)
     db.init_app(app)
+    
+    # Инициализация сжатия
+    Compress(app)
     
     # =============================================================================
     # ПРАКТИЧЕСКАЯ РАБОТА №4 - ЗАКОММЕНТИРОВАНО
