@@ -1,7 +1,7 @@
 """
 Валидация данных для API.
 """
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Type, Any
 
 from app.constants import (
     MAX_WORD_LENGTH,
@@ -12,6 +12,7 @@ from app.constants import (
     VIDEO_MAX_SIZE,
     EMBEDDING_DIMENSION
 )
+from app.utils.responses import error_response
 
 
 def validate_sign_data(data: Dict) -> List[str]:
@@ -162,4 +163,36 @@ def validate_text(text: str, max_length: int = MAX_DESCRIPTION_LENGTH) -> bool:
         return False
     
     return True
+
+
+def validate_entity_exists(
+    model_class: Type,
+    entity_id: Any,
+    entity_name: Optional[str] = None
+) -> Tuple[Optional[Any], Optional[Tuple]]:
+    """
+    Проверяет существование сущности в БД.
+    
+    Args:
+        model_class: Класс модели SQLAlchemy
+        entity_id: ID сущности
+        entity_name: Название сущности для сообщения об ошибке
+        
+    Returns:
+        Tuple[entity, error_response] - если entity None, нужно вернуть error_response
+        
+    Example:
+        category, error = validate_entity_exists(Category, data['category_id'], 'Категория')
+        if error:
+            return error
+    """
+    entity = model_class.query.get(entity_id)
+    if not entity:
+        name = entity_name or model_class.__name__
+        return None, error_response(
+            f'{name.upper()}_NOT_FOUND',
+            f'{name} не найдена',
+            400
+        )
+    return entity, None
 
