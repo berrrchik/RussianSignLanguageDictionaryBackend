@@ -176,11 +176,6 @@ def create_app(config_class=Config):
                     "word": {"type": "string", "example": "привет"},
                     "description": {"type": "string", "example": "Приветствие"},
                     "category_id": {"type": "string", "example": "greetings"},
-                    "embeddings": {
-                        "type": "array",
-                        "items": {"type": "number"},
-                        "example": [0.1, 0.2, 0.3, 0.4, 0.5]
-                    },
                     "videos_count": {"type": "integer", "example": 2},
                     "videos": {
                         "type": "array",
