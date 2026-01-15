@@ -35,7 +35,7 @@ def list_categories() -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     responses:
       200:
-    description: Список категорий
+        description: Список категорий
     """
     categories = Category.query.order_by(Category.order).all()
     return success_response(data=[cat.to_dict() for cat in categories])
@@ -54,14 +54,14 @@ def get_category(category_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: category_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
     responses:
       200:
-    description: Данные категории
+        description: Данные категории
       404:
-    description: Категория не найдена
+        description: Категория не найдена
     """
     category = Category.query.get_or_404(category_id)
     return success_response(data=category.to_dict())
@@ -81,9 +81,9 @@ def create_category() -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: body
-    in: body
-    required: true
-    schema:
+        in: body
+        required: true
+        schema:
           type: object
           required:
             - id
@@ -100,32 +100,32 @@ def create_category() -> Tuple[Dict[str, Any], int]:
               example: 1
     responses:
       201:
-    description: Категория создана
+        description: Категория создана
       400:
-    description: Ошибка валидации
+        description: Ошибка валидации
     """
     data = request.get_json()
-        
-        # Валидация
+    
+    # Валидация
     errors = validate_category_data(data)
     if errors:
-            return validation_error_response(errors)
-        
-        # Проверка уникальности ID
+        return validation_error_response(errors)
+    
+    # Проверка уникальности ID
     if Category.query.get(data.get('id')):
-            return error_response('DUPLICATE_ID', 'Категория с таким ID уже существует', 400)
-        
+        return error_response('DUPLICATE_ID', 'Категория с таким ID уже существует', 400)
+    
     category = Category(
-            id=data['id'],
-            name=data['name'],
-            order=data.get('order', 0)
-        )
+        id=data['id'],
+        name=data['name'],
+        order=data.get('order', 0)
+    )
     db.session.add(category)
     db.session.commit()
-        
-        # Обновление метаданных синхронизации
+    
+    # Обновление метаданных синхронизации
     update_sync_metadata()
-        
+    
     return success_response(data=category.to_dict(), status_code=201)
 
 
@@ -143,13 +143,13 @@ def update_category(category_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: category_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
       - name: body
-    in: body
-    required: true
-    schema:
+        in: body
+        required: true
+        schema:
           type: object
           properties:
             name:
@@ -158,28 +158,28 @@ def update_category(category_id: str) -> Tuple[Dict[str, Any], int]:
               type: integer
     responses:
       200:
-    description: Категория обновлена
+        description: Категория обновлена
       404:
-    description: Категория не найдена
+        description: Категория не найдена
     """
     category = Category.query.get_or_404(category_id)
     data = request.get_json()
-        
-        # Валидация
+    
+    # Валидация
     errors = validate_category_data(data)
     if errors:
-            return validation_error_response(errors)
-        
+        return validation_error_response(errors)
+    
     if 'name' in data:
-            category.name = data['name']
+        category.name = data['name']
     if 'order' in data:
-            category.order = data['order']
-        
+        category.order = data['order']
+    
     db.session.commit()
-        
-        # Обновление метаданных синхронизации
+    
+    # Обновление метаданных синхронизации
     update_sync_metadata()
-        
+    
     return success_response(data=category.to_dict())
 
 
@@ -196,34 +196,34 @@ def delete_category(category_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: category_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
     responses:
       200:
-    description: Категория удалена
+        description: Категория удалена
       400:
-    description: В категории есть жесты
+        description: В категории есть жесты
       404:
-    description: Категория не найдена
+        description: Категория не найдена
     """
     category = Category.query.get_or_404(category_id)
-        
-        # Проверка наличия жестов в категории
+    
+    # Проверка наличия жестов в категории
     signs_count = Sign.query.filter_by(category_id=category_id).count()
     if signs_count > 0:
-            return error_response(
-                'CATEGORY_HAS_SIGNS',
-                f'Невозможно удалить категорию: в ней содержится {signs_count} жестов',
-                400
-            )
-        
+        return error_response(
+            'CATEGORY_HAS_SIGNS',
+            f'Невозможно удалить категорию: в ней содержится {signs_count} жестов',
+            400
+        )
+    
     db.session.delete(category)
     db.session.commit()
-        
-        # Обновление метаданных синхронизации
+    
+    # Обновление метаданных синхронизации
     update_sync_metadata()
-        
+    
     return success_response(message='Категория удалена')
 
 
@@ -240,18 +240,18 @@ def get_category_signs(category_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: category_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
     responses:
       200:
-    description: Список жестов категории
+        description: Список жестов категории
       404:
-    description: Категория не найдена
+        description: Категория не найдена
     """
     Category.query.get_or_404(category_id)
     signs = Sign.query.filter_by(category_id=category_id).order_by(func.lower(Sign.word)).all()
-        
+    
     sorted_signs = sort_signs_russian(signs)
-        
+    
     return success_response(data=[sign.to_dict() for sign in sorted_signs])

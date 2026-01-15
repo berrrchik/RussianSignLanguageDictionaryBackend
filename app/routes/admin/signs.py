@@ -38,30 +38,30 @@ def list_signs() -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: page
-    in: query
-    type: integer
-    default: 1
-    description: Номер страницы
+        in: query
+        type: integer
+        default: 1
+        description: Номер страницы
       - name: per_page
-    in: query
-    type: integer
-    default: 50
-    description: Количество на странице
+        in: query
+        type: integer
+        default: 50
+        description: Количество на странице
       - name: category_id
-    in: query
-    type: string
-    required: false
-    description: Фильтр по категории
+        in: query
+        type: string
+        required: false
+        description: Фильтр по категории
       - name: search
-    in: query
-    type: string
-    required: false
-    description: Поиск по слову или ID
+        in: query
+        type: string
+        required: false
+        description: Поиск по слову или ID
     responses:
       200:
-    description: Список жестов
+        description: Список жестов
       401:
-    description: Неавторизован
+        description: Неавторизован
     """
     page = request.args.get('page', DEFAULT_PAGE, type=int)
     per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
@@ -115,15 +115,15 @@ def get_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: sign_id
-    in: path
-    type: string
-    required: true
-    description: ID жеста
+        in: path
+        type: string
+        required: true
+        description: ID жеста
     responses:
       200:
-    description: Данные жеста
+        description: Данные жеста
       404:
-    description: Жест не найден
+        description: Жест не найден
     """
     sign = Sign.query.get_or_404(sign_id)
     return success_response(data=sign.to_dict_with_relations())
@@ -143,9 +143,9 @@ def create_sign() -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: body
-    in: body
-    required: true
-    schema:
+        in: body
+        required: true
+        schema:
           type: object
           required:
             - id
@@ -166,9 +166,9 @@ def create_sign() -> Tuple[Dict[str, Any], int]:
               example: "greetings"
     responses:
       201:
-    description: Жест создан
+        description: Жест создан
       400:
-    description: Ошибка валидации
+        description: Ошибка валидации
     """
     data = request.get_json()
     
@@ -223,13 +223,13 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: sign_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
       - name: body
-    in: body
-    required: true
-    schema:
+        in: body
+        required: true
+        schema:
           type: object
           properties:
             word:
@@ -240,9 +240,9 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
               type: string
     responses:
       200:
-    description: Жест обновлён
+        description: Жест обновлён
       404:
-    description: Жест не найден
+        description: Жест не найден
     """
     sign = Sign.query.get_or_404(sign_id)
     data = request.get_json()
@@ -288,22 +288,22 @@ def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: sign_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
     responses:
       200:
-    description: Жест удалён
+        description: Жест удалён
       404:
-    description: Жест не найден
+        description: Жест не найден
     """
     sign = Sign.query.get_or_404(sign_id)
     db.session.delete(sign)
     db.session.commit()
-        
-        # Обновление метаданных синхронизации
+    
+    # Обновление метаданных синхронизации
     update_sync_metadata()
-        
+    
     return success_response(message='Жест удалён')
 
 
@@ -320,30 +320,30 @@ def regenerate_embeddings(sign_id: str) -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: sign_id
-    in: path
-    type: string
-    required: true
+        in: path
+        type: string
+        required: true
     responses:
       200:
-    description: Embeddings перегенерированы
+        description: Embeddings перегенерированы
       404:
-    description: Жест не найден
+        description: Жест не найден
       503:
-    description: Модель недоступна
+        description: Модель недоступна
     """
     sign = Sign.query.get_or_404(sign_id)
-        
+    
     if not EmbeddingsService.is_generator_available():
-            return error_response('MODEL_NOT_AVAILABLE', 'Модель для генерации embeddings недоступна', 503)
-        
+        return error_response('MODEL_NOT_AVAILABLE', 'Модель для генерации embeddings недоступна', 503)
+    
     embeddings = EmbeddingsService.regenerate_for_sign(sign)
     if embeddings:
-            sign.embeddings = embeddings
-            db.session.commit()
-            update_sync_metadata()
-            return success_response(data=sign.to_dict())
+        sign.embeddings = embeddings
+        db.session.commit()
+        update_sync_metadata()
+        return success_response(data=sign.to_dict())
     else:
-            return error_response('INVALID_EMBEDDINGS', 'Сгенерированные embeddings невалидны', 500)
+        return error_response('INVALID_EMBEDDINGS', 'Сгенерированные embeddings невалидны', 500)
 
 
 @bp.route('/signs/regenerate-embeddings-by-word', methods=['POST'])
@@ -360,9 +360,9 @@ def regenerate_embeddings_by_word() -> Tuple[Dict[str, Any], int]:
       - Bearer: []
     parameters:
       - name: body
-    in: body
-    required: true
-    schema:
+        in: body
+        required: true
+        schema:
           type: object
           required:
             - word
@@ -373,13 +373,13 @@ def regenerate_embeddings_by_word() -> Tuple[Dict[str, Any], int]:
               example: "привет"
     responses:
       200:
-    description: Embeddings перегенерированы
+        description: Embeddings перегенерированы
       404:
-    description: Жест не найден
+        description: Жест не найден
       503:
-    description: Модель недоступна
+        description: Модель недоступна
       500:
-    description: Ошибка генерации
+        description: Ошибка генерации
     """
     data = request.get_json()
     
