@@ -5,7 +5,7 @@ Raw эндпоинты возвращают данные без обертки {
 с Unix timestamp датами (оптимизировано для мобильных клиентов).
 """
 from typing import Tuple, Dict, Any, List
-from flask import Blueprint, request, current_app, jsonify
+from flask import Blueprint, request, current_app
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
@@ -250,41 +250,3 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
     return create_response_with_etag(data, "/sync/data/raw")
 
 
-@bp.route('/embeddings/raw', methods=['GET'])
-@raw_error_handler
-def get_embeddings_raw() -> Tuple[Dict[str, Any], int]:
-    """
-    Получение embeddings всех жестов (упрощенный формат без обертки)
-    ---
-    tags:
-      - Синхронизация (Raw)
-    responses:
-      200:
-        description: Embeddings всех жестов
-        schema:
-          type: object
-          properties:
-            embeddings:
-              type: object
-              additionalProperties:
-                type: array
-                items:
-                  type: number
-              example:
-                sign_001: [0.1, 0.2, 0.3]
-                sign_002: [0.4, 0.5, 0.6]
-      500:
-        description: Внутренняя ошибка сервера
-    """
-    # Логируем использование raw endpoint для аналитики миграции
-    current_app.logger.info("Raw endpoint accessed: /embeddings/raw")
-    
-    signs = Sign.query.filter(Sign.embeddings.isnot(None)).order_by(func.lower(Sign.word)).all()
-    sorted_signs = sort_signs_russian(signs)
-    
-    embeddings_dict = {}
-    for sign in sorted_signs:
-        if sign.embeddings:
-            embeddings_dict[sign.id] = sign.embeddings
-    
-    return jsonify({"embeddings": embeddings_dict}), 200
