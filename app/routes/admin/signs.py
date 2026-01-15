@@ -19,7 +19,6 @@ from app.utils.responses import (
     not_found_response
 )
 from app.utils.sorting import sort_signs_russian
-from app.services.embeddings_service import EmbeddingsService
 from app.constants import DEFAULT_PAGE, DEFAULT_PER_PAGE
 
 bp = Blueprint('admin_signs', __name__)
@@ -186,19 +185,12 @@ def create_sign() -> Tuple[Dict[str, Any], int]:
     if Sign.query.get(data.get('id')):
         return error_response('DUPLICATE_ID', 'Жест с таким ID уже существует', 400)
     
-    # Генерация embeddings
-    embeddings = EmbeddingsService.generate_for_sign(
-        data['word'],
-        data.get('description')
-    )
-    
     # Создание жеста
     sign = Sign(
         id=data['id'],
         word=data['word'],
         description=data.get('description'),
-        category_id=data['category_id'],
-        embeddings=embeddings
+        category_id=data['category_id']
     )
     db.session.add(sign)
     db.session.commit()
@@ -263,10 +255,6 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
             return error
         sign.category_id = data['category_id']
     
-    # Перегенерация embeddings если изменился текст
-    if 'word' in data or 'description' in data:
-        sign.embeddings = EmbeddingsService.regenerate_for_sign(sign)
-    
     db.session.commit()
     
     # Обновление метаданных синхронизации
@@ -307,100 +295,3 @@ def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     return success_response(message='Жест удалён')
 
 
-@bp.route('/signs/<sign_id>/regenerate-embeddings', methods=['POST'])
-@require_auth
-@handle_db_errors('перегенерации embeddings')
-def regenerate_embeddings(sign_id: str) -> Tuple[Dict[str, Any], int]:
-    """
-    Перегенерация embeddings для жеста
-    ---
-    tags:
-      - Жесты
-    security:
-      - Bearer: []
-    parameters:
-      - name: sign_id
-        in: path
-        type: string
-        required: true
-    responses:
-      200:
-        description: Embeddings перегенерированы
-      404:
-        description: Жест не найден
-      503:
-        description: Модель недоступна
-    """
-    sign = Sign.query.get_or_404(sign_id)
-    
-    if not EmbeddingsService.is_generator_available():
-        return error_response('MODEL_NOT_AVAILABLE', 'Модель для генерации embeddings недоступна', 503)
-    
-    embeddings = EmbeddingsService.regenerate_for_sign(sign)
-    if embeddings:
-        sign.embeddings = embeddings
-        db.session.commit()
-        update_sync_metadata()
-        return success_response(data=sign.to_dict())
-    else:
-        return error_response('INVALID_EMBEDDINGS', 'Сгенерированные embeddings невалидны', 500)
-
-
-@bp.route('/signs/regenerate-embeddings-by-word', methods=['POST'])
-@require_auth
-@require_json
-@handle_db_errors('перегенерации embeddings')
-def regenerate_embeddings_by_word() -> Tuple[Dict[str, Any], int]:
-    """
-    Перегенерация embeddings для жеста по слову
-    ---
-    tags:
-      - Жесты
-    security:
-      - Bearer: []
-    parameters:
-      - name: body
-        in: body
-        required: true
-        schema:
-          type: object
-          required:
-            - word
-          properties:
-            word:
-              type: string
-              description: Слово жеста для перегенерации embeddings
-              example: "привет"
-    responses:
-      200:
-        description: Embeddings перегенерированы
-      404:
-        description: Жест не найден
-      503:
-        description: Модель недоступна
-      500:
-        description: Ошибка генерации
-    """
-    data = request.get_json()
-    
-    word = data.get('word', '').strip()
-    if not word:
-        return error_response('VALIDATION_ERROR', 'Поле "word" не может быть пустым', 400)
-    
-    # Поиск жеста по слову
-    sign = Sign.query.filter_by(word=word).first()
-    if not sign:
-        return not_found_response(f'Жест с словом "{word}"')
-    
-    if not EmbeddingsService.is_generator_available():
-        return error_response('MODEL_NOT_AVAILABLE', 'Модель для генерации embeddings недоступна', 503)
-    
-    embeddings = EmbeddingsService.regenerate_for_sign(sign)
-    if embeddings:
-        sign.embeddings = embeddings
-        db.session.commit()
-        update_sync_metadata()
-        current_app.logger.info(f"Embeddings перегенерированы для жеста '{sign.word}' (id: {sign.id})")
-        return success_response(data=sign.to_dict())
-    else:
-        return error_response('INVALID_EMBEDDINGS', 'Сгенерированные embeddings невалидны', 500)

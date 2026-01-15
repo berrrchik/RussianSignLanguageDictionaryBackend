@@ -2,7 +2,6 @@
 Модель жеста.
 """
 from datetime import datetime
-from sqlalchemy.dialects.postgresql import JSONB
 from app.database import db
 from app.utils.formatters import format_datetime
 
@@ -16,7 +15,6 @@ class Sign(db.Model):
     word = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     category_id = db.Column(db.String(50), db.ForeignKey('categories.id', ondelete='SET NULL'), nullable=False)
-    embeddings = db.Column(JSONB, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -30,7 +28,6 @@ class Sign(db.Model):
             'word': self.word,
             'description': self.description,
             'category_id': self.category_id,
-            'embeddings': self.embeddings,
             'videos_count': len(self.videos) if self.videos else 0,
             'created_at': format_datetime(self.created_at),
             'updated_at': format_datetime(self.updated_at),
