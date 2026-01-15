@@ -9,8 +9,7 @@ from app.constants import (
     MAX_CATEGORY_ID_LENGTH,
     MAX_DESCRIPTION_LENGTH,
     MAX_CONTEXT_DESCRIPTION_LENGTH,
-    VIDEO_MAX_SIZE,
-    EMBEDDING_DIMENSION
+    VIDEO_MAX_SIZE
 )
 from app.utils.responses import error_response
 
@@ -114,55 +113,6 @@ def validate_video_data(data: Dict, file=None) -> List[str]:
             errors.append('Поле "order" должно быть целым числом')
     
     return errors
-
-
-def validate_embeddings(embeddings: Optional[List[float]]) -> bool:
-    """
-    Валидация embeddings перед сохранением в БД.
-    
-    Args:
-        embeddings: Список чисел (embeddings)
-        
-    Returns:
-        True если валидно, False иначе
-    """
-    if embeddings is None:
-        return True  # None допустимо
-    
-    if not isinstance(embeddings, list):
-        return False
-    
-    if len(embeddings) != EMBEDDING_DIMENSION:
-        return False
-    
-    if not all(isinstance(x, (int, float)) for x in embeddings):
-        return False
-    
-    return True
-
-
-def validate_text(text: str, max_length: int = MAX_DESCRIPTION_LENGTH) -> bool:
-    """
-    Валидация текста для генерации embeddings.
-    
-    Args:
-        text: Текст для валидации
-        max_length: Максимальная длина текста
-        
-    Returns:
-        True если валидация прошла, False иначе
-    """
-    if not text or not isinstance(text, str):
-        return False
-    
-    text = text.strip()
-    if not text:
-        return False
-    
-    if len(text) > max_length:
-        return False
-    
-    return True
 
 
 def validate_entity_exists(

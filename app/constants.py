@@ -1,9 +1,6 @@
 """
 Константы приложения.
 """
-# Размерность embeddings (RuBERT base)
-EMBEDDING_DIMENSION = 768
-
 # Максимальная длина полей
 MAX_WORD_LENGTH = 200
 MAX_CATEGORY_NAME_LENGTH = 200
@@ -13,9 +10,6 @@ MAX_CONTEXT_DESCRIPTION_LENGTH = 500
 
 # Размеры файлов (в байтах)
 VIDEO_MAX_SIZE = 50 * 1024 * 1024  # 50 MB
-
-# Параметры токенизации
-TOKENIZER_MAX_LENGTH = 512
 
 # Пагинация
 DEFAULT_PAGE = 1
