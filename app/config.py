@@ -33,7 +33,9 @@ class Config:
     # Supabase 
     SUPABASE_URL = os.getenv('SUPABASE_URL', '')
     SUPABASE_KEY = os.getenv('SUPABASE_KEY', '')
-    SUPABASE_BUCKET = os.getenv('SUPABASE_BUCKET', 'signs')
+    SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY', '')
+    SUPABASE_BUCKET = os.getenv('SUPABASE_BUCKET', 'signs')  # Bucket для жестов
+    SUPABASE_LESSONS_BUCKET = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')  # Bucket для уроков
     
     SECRET_KEY = os.getenv('SECRET_KEY') or JWT_SECRET_KEY
     DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
