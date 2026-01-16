@@ -29,3 +29,9 @@ def categories_page():
     """Страница управления категориями."""
     return render_template('categories.html')
 
+
+@bp.route('/lessons', methods=['GET'])
+def lessons_page():
+    """Страница управления уроками."""
+    return render_template('lessons.html')
+
