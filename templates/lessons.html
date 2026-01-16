@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Управление уроками{% endblock %}
+
+{% block content %}
+    <div class="section">
+        <div class="section-header">
+            <h1>Управление уроками</h1>
+            <button class="btn btn-success" onclick="openCreateLessonModal()">Создать урок</button>
+        </div>
+
+        <div class="table-container">
+            <table id="lessonsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Название</th>
+                        <th style="width: 50px;">Порядок</th>
+                        <th style="width: 300px;">Video URL</th>
+                        <th style="width: 250px;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="lessonsTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem;">
+                            <div class="loading"></div> Загрузка...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
+
+{% block modals %}
+    <!-- Модальное окно для создания/редактирования урока -->
+    <div id="lessonModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="lessonModalTitle">Создать урок</h2>
+                <button class="modal-close" onclick="closeLessonModal()">&times;</button>
+            </div>
+            <form id="lessonForm" onsubmit="saveLesson(event)">
+                <input type="hidden" id="lessonId" name="id">
+                <div class="form-group">
+                    <label for="lessonTitle">Название <span class="required">*</span></label>
+                    <input type="text" id="lessonTitle" name="title" required maxlength="200">
+                </div>
+                <div class="form-group">
+                    <label for="lessonDescription">Описание <span class="required">*</span></label>
+                    <textarea id="lessonDescription" name="description" required rows="5"></textarea>
+                </div>
+                <div class="form-group" id="lessonVideoPreviewGroup" style="display: none;">
+                    <label>Видео</label>
+                    <div id="lessonVideoPreview" style="margin-top: 0.5rem;">
+                        <a href="#" id="lessonVideoLink" target="_blank" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 1rem; margin-right: 0.5rem; text-decoration: none; display: inline-block;">Открыть видео</a>
+                        <button type="button" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 1rem; margin-right: 0.5rem;" onclick="previewLessonVideo()">Предпросмотр</button>
+                        <button type="button" class="btn btn-danger" id="lessonDeleteVideoButton" style="padding: 0.5rem 1rem; font-size: 1rem;" onclick="showDeleteVideoConfirmation()">Удалить видео</button>
+                    </div>
+                </div>
+                <div class="form-group" id="lessonVideoUploadGroup" style="margin-top: 1rem; border-top: 1px solid #e0e0e0; padding-top: 1rem;">
+                    <label for="lessonVideoFile">Загрузить видео файл (MP4, макс. 50MB) <span class="required" id="lessonVideoRequired" style="display: none;">*</span></label>
+                    <input type="file" id="lessonVideoFile" name="video_file" accept="video/mp4">
+                    <button type="button" class="btn btn-success" id="lessonVideoUploadButton" onclick="uploadLessonVideo()" style="margin-top: 0.5rem; display: none;">Загрузить видео</button>
+                    <div id="lessonVideoUploadError" class="error-message" style="display: none; margin-top: 0.5rem;"></div>
+                    <div id="lessonVideoUploadProgress" style="display: none; margin-top: 0.5rem;">
+                        <div class="loading"></div> <span>Загрузка видео...</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="lessonOrder">Порядок <span class="required">*</span></label>
+                    <input type="number" id="lessonOrder" name="order" required min="0">
+                </div>
+                <div id="lessonFormError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                    <button type="button" class="btn btn-danger" id="lessonDeleteButton" onclick="showDeleteLessonConfirmation()" style="display: none;">Удалить урок</button>
+                    <div style="margin-left: auto;">
+                        <button type="button" class="btn btn-secondary" onclick="closeLessonModal()">Отмена</button>
+                        <button type="submit" class="btn btn-primary" id="lessonFormSubmit">Сохранить</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения удаления урока -->
+    <div id="deleteLessonModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Подтверждение удаления</h2>
+                <button class="modal-close" onclick="closeDeleteLessonModal()">&times;</button>
+            </div>
+            <div class="warning-box" style="margin: 1rem 0; padding: 1rem; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                <h3 style="color: #856404; margin-bottom: 0.5rem;">⚠️ Внимание!</h3>
+                <p style="color: #856404; margin-bottom: 0.5rem;">Это действие нельзя отменить. Урок будет удален навсегда.</p>
+                <p style="color: #856404; font-weight: bold;">Для подтверждения введите название урока: <span id="deleteLessonTitleDisplay" style="color: #000;"></span></p>
+            </div>
+            <div class="form-group">
+                <label for="deleteLessonConfirmInput">Название урока:</label>
+                <input type="text" id="deleteLessonConfirmInput" placeholder="Введите название урока для подтверждения">
+                <div id="deleteLessonError" class="error-message" style="display: none; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteLessonModal()">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteLessonButton" onclick="confirmDeleteLesson()" disabled>Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения удаления видео -->
+    <div id="deleteVideoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Подтверждение удаления видео</h2>
+                <button class="modal-close" onclick="closeDeleteVideoModal()">&times;</button>
+            </div>
+            <div class="warning-box" style="margin: 1rem 0; padding: 1rem; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                <h3 style="color: #856404; margin-bottom: 0.5rem;">⚠️ Внимание!</h3>
+                <p style="color: #856404; margin-bottom: 0.5rem;">Это действие нельзя отменить. Видео будет удалено навсегда.</p>
+                <p style="color: #856404; font-weight: bold; margin-bottom: 0.5rem;">После удаления видео вы должны загрузить новое видео перед сохранением урока.</p>
+                <p style="color: #856404; font-weight: bold;">Для подтверждения введите название урока: <span id="deleteVideoLessonTitleDisplay" style="color: #000;"></span></p>
+            </div>
+            <div class="form-group">
+                <label for="deleteVideoConfirmInput">Название урока:</label>
+                <input type="text" id="deleteVideoConfirmInput" placeholder="Введите название урока для подтверждения">
+                <div id="deleteVideoError" class="error-message" style="display: none; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteVideoModal()">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteVideoButton" onclick="confirmDeleteVideo()" disabled>Удалить видео</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для просмотра видео -->
+    <div id="viewLessonVideoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Просмотр видео</h2>
+                <button class="modal-close" onclick="closeViewLessonVideoModal()">&times;</button>
+            </div>
+            <video id="viewLessonVideoPlayer" class="video-preview" controls></video>
+            <p id="viewLessonVideoDescription" style="margin-top: 1rem;"></p>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/lessons.js') }}"></script>
+{% endblock %}
