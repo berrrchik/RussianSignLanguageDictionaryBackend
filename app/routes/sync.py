@@ -12,6 +12,7 @@ from sqlalchemy.orm import joinedload
 from app.database import db
 from app.models.category import Category
 from app.models.sign import Sign
+from app.models.lesson import Lesson
 from app.models.responses import (
     SyncMetadataRawResponse,
     SyncDataRawResponse,
@@ -19,6 +20,7 @@ from app.models.responses import (
     SignRawResponse,
     SignVideoRawResponse,
     SynonymRawResponse,
+    LessonRawResponse,
 )
 from app.utils.sorting import sort_signs_russian
 from app.utils.serializers import deserialize_datetime
@@ -183,6 +185,27 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
               type: array
               items:
                 type: object
+            lessons:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  video_url:
+                    type: string
+                  order:
+                    type: integer
+                  created_at:
+                    type: integer
+                    description: Unix timestamp
+                  updated_at:
+                    type: integer
+                    description: Unix timestamp
             last_updated:
               type: integer
               description: Unix timestamp последнего обновления
@@ -202,6 +225,9 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
     ).order_by(func.lower(Sign.word)).all()
     
     sorted_signs = sort_signs_russian(signs)
+    
+    # Получаем уроки
+    lessons = Lesson.query.order_by(Lesson.order).all()
     
     # Валидация данных
     signs_without_videos = [s for s in sorted_signs if not s.videos]
@@ -229,9 +255,23 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
     
     signs_response = [_build_sign_raw_response(sign) for sign in sorted_signs]
     
+    lessons_response = [
+        LessonRawResponse(
+            id=lesson.id,
+            title=lesson.title,
+            description=lesson.description,
+            video_url=lesson.video_url,
+            order=lesson.order,
+            created_at=lesson.created_at,
+            updated_at=lesson.updated_at,
+        )
+        for lesson in lessons
+    ]
+    
     response = SyncDataRawResponse(
         categories=categories_response,
         signs=signs_response,
+        lessons=lessons_response,
         last_updated=metadata.last_updated
     )
     
@@ -243,6 +283,7 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
         f"ETag generation for /sync/data/raw: "
         f"categories={len(data.get('categories', []))}, "
         f"signs={len(data.get('signs', []))}, "
+        f"lessons={len(data.get('lessons', []))}, "
         f"last_updated={data.get('last_updated')}"
     )
     
