@@ -115,6 +115,45 @@ def validate_video_data(data: Dict, file=None) -> List[str]:
     return errors
 
 
+def validate_lesson_data(data: dict, require_id: bool = False, require_video: bool = False) -> Tuple[bool, str]:
+    """
+    Валидация данных для создания/обновления урока.
+    
+    Args:
+        data: Словарь с данными урока
+        require_id: Если True, ID обязателен (для обновления), иначе опционален (для создания)
+        require_video: Если True, video_url обязателен (для создания урока)
+        
+    Returns:
+        Tuple[is_valid: bool, error_message: str] - кортеж с результатом валидации
+    """
+    # ID опционален при создании (будет автогенерирован), обязателен при обновлении
+    if require_id:
+        if not data.get('id') or len(data['id']) > 50:
+            return False, "ID обязателен и должен быть не длиннее 50 символов"
+    elif data.get('id') and len(data['id']) > 50:
+        return False, "ID должен быть не длиннее 50 символов"
+    
+    if not data.get('title') or len(data['title']) > 200:
+        return False, "Title обязателен и должен быть не длиннее 200 символов"
+    
+    if not data.get('description'):
+        return False, "Description обязателен"
+    
+    # video_url обязателен при создании (require_video=True)
+    # при обновлении может быть пустым (если видео было удалено)
+    if require_video and not data.get('video_url'):
+        return False, "Video URL обязателен при создании урока"
+    
+    # При обновлении, если video_url пустой, это допустимо (видео было удалено)
+    
+    order = data.get('order')
+    if order is None or not isinstance(order, int) or order < 0:
+        return False, "Order должен быть неотрицательным целым числом"
+    
+    return True, ""
+
+
 def validate_entity_exists(
     model_class: Type,
     entity_id: Any,
