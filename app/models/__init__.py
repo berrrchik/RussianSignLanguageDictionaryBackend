@@ -7,6 +7,7 @@ from app.models.sign_video import SignVideo
 from app.models.sign_synonym import SignSynonym
 from app.models.sync_metadata import SyncMetadata
 from app.models.admin_user import AdminUser
+from app.models.lesson import Lesson
 
 __all__ = [
     'Category',
@@ -15,5 +16,6 @@ __all__ = [
     'SignSynonym',
     'SyncMetadata',
     'AdminUser',
+    'Lesson',
 ]
 

@@ -73,6 +73,24 @@ class CategoryRawResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LessonRawResponse(BaseModel):
+    """Response модель для урока."""
+    
+    id: str
+    title: str
+    description: str
+    video_url: str
+    order: int
+    created_at: datetime
+    updated_at: datetime
+    
+    @field_serializer('created_at', 'updated_at')
+    def serialize_dt(self, dt: datetime) -> Optional[int]:
+        return serialize_datetime(dt)
+    
+    model_config = {"from_attributes": True}
+
+
 class SyncMetadataRawResponse(BaseModel):
     """Response модель для метаданных синхронизации."""
     
@@ -91,6 +109,7 @@ class SyncDataRawResponse(BaseModel):
     
     categories: List[CategoryRawResponse]
     signs: List[SignRawResponse]
+    lessons: List[LessonRawResponse]
     last_updated: datetime
     
     @field_serializer('last_updated')
