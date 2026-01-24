@@ -25,7 +25,7 @@ def update_sync_metadata():
     """
     Обновляет метаданные синхронизации (last_updated).
     
-    Вызывается после любых изменений в таблицах signs, categories, sign_videos, sign_synonyms.
+    Вызывается после любых изменений в таблицах signs, categories, sign_videos, sign_synonyms, lessons.
     """
     metadata = SyncMetadata.query.first()
     if metadata:
