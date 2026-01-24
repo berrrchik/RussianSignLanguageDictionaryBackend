@@ -13,7 +13,7 @@ class VideoStorage(ABC):
     """Абстрактный класс для хранения видео."""
     
     @abstractmethod
-    def upload(self, file, sign_id: str, filename: str) -> Tuple[str, str]:
+    def upload(self, file, sign_id: str, filename: str, category_id: Optional[str] = None) -> Tuple[str, str]:
         """
         Загружает видео файл.
         
@@ -21,6 +21,7 @@ class VideoStorage(ABC):
             file: Файловый объект для загрузки
             sign_id: ID жеста
             filename: Имя файла
+            category_id: ID категории (опционально, используется для структуры папок в Supabase)
             
         Returns:
             Tuple[file_path, url]: Путь к файлу и публичный URL
@@ -71,7 +72,7 @@ class LocalVideoStorage(VideoStorage):
         # Создание директории если не существует
         self.storage_path.mkdir(parents=True, exist_ok=True)
     
-    def upload(self, file, sign_id: str, filename: str) -> Tuple[str, str]:
+    def upload(self, file, sign_id: str, filename: str, category_id: Optional[str] = None) -> Tuple[str, str]:
         """Загружает файл в локальное хранилище."""
         # Безопасное имя файла с префиксом sign_id
         safe_filename = secure_filename(filename)
@@ -103,7 +104,7 @@ class LocalVideoStorage(VideoStorage):
 
 
 class SupabaseVideoStorage(VideoStorage):
-    """Хранилище видео в Supabase Storage (для будущего использования)."""
+    """Хранилище видео в Supabase Storage."""
     
     def __init__(self, supabase_url: str, supabase_key: str, bucket_name: str = "signs"):
         """
@@ -111,34 +112,96 @@ class SupabaseVideoStorage(VideoStorage):
         
         Args:
             supabase_url: URL проекта Supabase
-            supabase_key: API ключ Supabase
+            supabase_key: API ключ Supabase (должен быть service role key для загрузки)
             bucket_name: Имя bucket в Supabase Storage
         """
-        self.supabase_url = supabase_url
+        self.supabase_url = supabase_url.rstrip('/')
         self.supabase_key = supabase_key
         self.bucket_name = bucket_name
-        # TODO: Инициализировать Supabase клиент когда понадобится
-        # from supabase import create_client
-        # self.client = create_client(supabase_url, supabase_key)
+        
+        try:
+            from supabase import create_client, Client
+            self.client: Client = create_client(self.supabase_url, self.supabase_key)
+        except ImportError:
+            raise ImportError("Библиотека supabase не установлена. Установите: pip install supabase")
     
-    def upload(self, file, sign_id: str, filename: str) -> Tuple[str, str]:
-        """Загружает файл в Supabase Storage."""
-        # TODO: Реализовать загрузку в Supabase
-        # Путь в формате: signs/{category}/{filename}
-        # storage_path = f"signs/{category}/{filename}"
-        # response = self.client.storage.from_(self.bucket_name).upload(storage_path, file)
-        # url = f"{self.supabase_url}/storage/v1/object/public/{self.bucket_name}/{storage_path}"
-        raise NotImplementedError("Supabase storage будет реализован позже")
+    def upload(self, file, sign_id: str, filename: str, category_id: Optional[str] = None) -> Tuple[str, str]:
+        """
+        Загружает файл в Supabase Storage.
+        
+        Args:
+            file: Файловый объект для загрузки
+            sign_id: ID жеста
+            filename: Исходное имя файла
+            category_id: ID категории (используется для структуры папок: signs/{category_id}/filename)
+            
+        Returns:
+            Tuple[file_path, url]: Относительный путь для БД и публичный URL
+        """
+        from werkzeug.utils import secure_filename
+        
+        safe_filename = secure_filename(filename)
+        safe_sign_id = sign_id.replace('_', '-')
+        safe_filename = f"{safe_sign_id}-{safe_filename}"
+        
+        if category_id:
+            safe_category_id = category_id.replace('_', '-')
+            storage_path = f"signs/{safe_category_id}/{safe_filename}"
+        else:
+            storage_path = safe_filename
+        
+        file.seek(0)
+        file_data = file.read()
+        
+        self.client.storage.from_(self.bucket_name).upload(
+            path=storage_path,
+            file=file_data,
+            file_options={"content-type": "video/mp4", "upsert": "true"}
+        )
+        
+        public_url = self.client.storage.from_(self.bucket_name).get_public_url(storage_path)
+        
+        if category_id:
+            safe_category_id = category_id.replace('_', '-')
+            file_path = f"signs/{safe_category_id}/{safe_filename}"
+        else:
+            file_path = f"signs/{safe_filename}"
+        
+        return (file_path, public_url)
     
     def delete(self, file_path: str) -> bool:
-        """Удаляет файл из Supabase Storage."""
-        # TODO: Реализовать удаление из Supabase
-        raise NotImplementedError("Supabase storage будет реализован позже")
+        """
+        Удаляет файл из Supabase Storage.
+        
+        Args:
+            file_path: Относительный путь в формате signs/category/filename или signs/filename
+            
+        Returns:
+            True если удалено успешно, False иначе
+        """
+        try:
+            storage_path = file_path
+            
+            self.client.storage.from_(self.bucket_name).remove([storage_path])
+            return True
+        except Exception as e:  
+            import logging
+            logging.warning(f"Не удалось удалить файл {file_path} из Supabase Storage: {e}")
+            return False
     
     def get_url(self, file_path: str) -> str:
-        """Получает публичный URL для файла в Supabase."""
-        # TODO: Реализовать получение URL из Supabase
-        raise NotImplementedError("Supabase storage будет реализован позже")
+        """
+        Получает публичный URL для файла в Supabase.
+        
+        Args:
+            file_path: Относительный путь в формате signs/category/filename или signs/filename
+            
+        Returns:
+            Публичный URL
+        """
+        storage_path = file_path
+        
+        return self.client.storage.from_(self.bucket_name).get_public_url(storage_path)
 
 
 def get_video_storage():
@@ -148,7 +211,7 @@ def get_video_storage():
     Использует конфигурацию из переменных окружения:
     - VIDEO_STORAGE_TYPE: 'local' или 'supabase' (по умолчанию 'local')
     - Для local: VIDEO_STORAGE_PATH, VIDEO_BASE_URL
-    - Для supabase: SUPABASE_URL, SUPABASE_KEY, SUPABASE_BUCKET
+    - Для supabase: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (или SUPABASE_KEY), SUPABASE_BUCKET
     
     Returns:
         Экземпляр VideoStorage
@@ -163,10 +226,21 @@ def get_video_storage():
             base_url=current_app.config['VIDEO_BASE_URL']
         )
     elif storage_type == 'supabase':
+        supabase_url = os.getenv('SUPABASE_URL')
+        # Используем service role key для загрузки (обходит RLS), если доступен, иначе anon key
+        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
+        bucket_name = os.getenv('SUPABASE_BUCKET', 'signs')
+        
+        if not supabase_url or not supabase_key:
+            raise ValueError(
+                "Настройки Supabase не найдены. Укажите SUPABASE_URL и "
+                "SUPABASE_KEY (или SUPABASE_SERVICE_ROLE_KEY) в .env"
+            )
+        
         return SupabaseVideoStorage(
-            supabase_url=os.getenv('SUPABASE_URL'),
-            supabase_key=os.getenv('SUPABASE_KEY'),
-            bucket_name=os.getenv('SUPABASE_BUCKET', 'signs')
+            supabase_url=supabase_url,
+            supabase_key=supabase_key,
+            bucket_name=bucket_name
         )
     else:
         raise ValueError(f"Неизвестный тип хранилища: {storage_type}")
