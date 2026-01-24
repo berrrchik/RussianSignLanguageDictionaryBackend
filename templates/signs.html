@@ -1,63 +1,47 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Управление жестами</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
-</head>
-<body>
-    <nav class="navbar">
-        <div class="navbar-content">
-            <div class="navbar-brand">Словарь жестового языка</div>
-            <ul class="navbar-nav">
-                <li><a href="/admin/dashboard">Главная</a></li>
-                <li><a href="/admin/signs" class="active">Жесты</a></li>
-                <li><a href="/admin/categories">Категории</a></li>
-            </ul>
-            <button class="btn-logout" onclick="logout()">Выйти</button>
+{% extends "base.html" %}
+
+{% block title %}Управление жестами{% endblock %}
+
+{% block content %}
+    <div class="section">
+        <div class="section-header">
+            <h1>Управление жестами</h1>
+            <button class="btn btn-success" onclick="openCreateSignModal()">Создать жест</button>
         </div>
-    </nav>
 
-    <div class="container">
-        <div class="section">
-            <div class="section-header">
-                <h1>Управление жестами</h1>
-                <button class="btn btn-success" onclick="openCreateSignModal()">Создать жест</button>
-            </div>
-
-            <div class="controls">
-                <input type="text" id="searchInput" placeholder="Поиск по слову..." onkeyup="filterSigns()">
-                <select id="categoryFilter" onchange="filterSigns()">
-                    <option value="">Все категории</option>
-                </select>
-            </div>
-
-            <div class="table-container">
-                <table id="signsTable">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Слово</th>
-                            <th>Категория</th>
-                            <th>Видео</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody id="signsTableBody">
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 2rem;">
-                                <div class="loading"></div> Загрузка...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div id="pagination" class="pagination"></div>
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Поиск по слову..." onkeyup="filterSigns()">
+            <select id="categoryFilter" onchange="filterSigns()">
+                <option value="">Все категории</option>
+            </select>
         </div>
+
+        <div class="table-container">
+            <table id="signsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Слово</th>
+                        <th>Категория</th>
+                        <th>Видео</th>
+                        <th style="width: 250px;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="signsTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem;">
+                            <div class="loading"></div> Загрузка...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="pagination" class="pagination"></div>
     </div>
+{% endblock %}
 
+{% block modals %}
     <!-- Модальное окно для создания/редактирования жеста -->
     <div id="signModal" class="modal">
         <div class="modal-content">
@@ -181,6 +165,35 @@
                         </table>
                     </div>
                 </div>
+                
+                <!-- Кнопка удаления жеста -->
+                <div class="section" style="margin-top: 1.5rem; border-top: 2px solid #e0e0e0; padding-top: 1rem; text-align: center;">
+                    <button type="button" class="btn btn-danger" id="signDeleteButton" onclick="showDeleteSignConfirmation()" style="display: none;">Удалить жест</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения удаления жеста -->
+    <div id="deleteSignModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Подтверждение удаления</h2>
+                <button class="modal-close" onclick="closeDeleteSignModal()">&times;</button>
+            </div>
+            <div class="warning-box" style="margin: 1rem 0; padding: 1rem; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                <h3 style="color: #856404; margin-bottom: 0.5rem;">⚠️ Внимание!</h3>
+                <p style="color: #856404; margin-bottom: 0.5rem;">Это действие нельзя отменить. Жест будет удален навсегда вместе со всеми видео и синонимами.</p>
+                <p style="color: #856404; font-weight: bold;">Для подтверждения введите слово жеста: <span id="deleteSignWordDisplay" style="color: #000;"></span></p>
+            </div>
+            <div class="form-group">
+                <label for="deleteSignConfirmInput">Слово жеста:</label>
+                <input type="text" id="deleteSignConfirmInput" placeholder="Введите слово жеста для подтверждения">
+                <div id="deleteSignError" class="error-message" style="display: none; margin-top: 0.5rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteSignModal()">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteSignButton" onclick="confirmDeleteSign()" disabled>Удалить</button>
             </div>
         </div>
     </div>
@@ -244,8 +257,8 @@
             <p id="viewVideoDescription" style="margin-top: 1rem;"></p>
         </div>
     </div>
+{% endblock %}
 
+{% block scripts %}
     <script src="{{ url_for('static', filename='js/signs.js') }}"></script>
-</body>
-</html>
-
+{% endblock %}
