@@ -8,71 +8,12 @@ let searchTimeout = null;
 
 // Проверка авторизации при загрузке
 window.addEventListener('load', async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        window.location.href = '/admin/login';
-        return;
-    }
+    if (!checkAuth()) return;
     // Важно: сначала загружаем категории, потом жесты
     // иначе в таблице жестов категории будут показаны как "Не указана"
     await loadCategories();
     loadSigns();
 });
-
-// Функция выхода
-function logout() {
-    if (confirm('Вы уверены, что хотите выйти?')) {
-        localStorage.removeItem('authToken');
-        window.location.href = '/admin/login';
-    }
-}
-
-// Утилиты для API запросов
-async function apiRequest(url, options = {}) {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        window.location.href = '/admin/login';
-        return null;
-    }
-
-    const defaultOptions = {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        }
-    };
-
-    const mergedOptions = {
-        ...defaultOptions,
-        ...options,
-        headers: {
-            ...defaultOptions.headers,
-            ...options.headers
-        }
-    };
-
-    const response = await fetch(url, mergedOptions);
-    
-    if (response.status === 401) {
-        localStorage.removeItem('authToken');
-        window.location.href = '/admin/login';
-        return null;
-    }
-
-    return response;
-}
-
-// Показать уведомление
-function showNotification(message, type = 'success') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
 
 // Показать/скрыть индикатор загрузки (только в области таблицы)
 function showLoading() {
@@ -212,9 +153,8 @@ function renderSigns() {
                         <td>${sign.word}</td>
                         <td>${category ? category.name : 'Не указана'}</td>
                         <td>${sign.videos_count || 0}</td>
-                        <td>
-                            <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="openEditSignModal('${sign.id}')">Редактировать</button>
-                            <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="deleteSign('${sign.id}')">Удалить</button>
+                        <td style="white-space: nowrap;">
+                            <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 1rem; display: inline-block;" onclick="openEditSignModal('${sign.id}')">Редактировать</button>
                         </td>
                     </tr>
                 `;
@@ -522,11 +462,7 @@ function generateSignId() {
     return 'sign_' + Date.now();
 }
 
-function showError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-}
+// Функция showError теперь в common.js
 
 // Модальное окно редактирования жеста
 async function openEditSignModal(signId) {
@@ -555,6 +491,10 @@ async function openEditSignModal(signId) {
             document.getElementById('editSignCategory').value = sign.category_id;
             
             document.getElementById('editSignModalTitle').textContent = `Редактировать: ${sign.word}`;
+            document.getElementById('signDeleteButton').style.display = 'inline-block'; // Показываем кнопку удаления
+            
+            // Сохраняем слово жеста для подтверждения удаления
+            window.currentSignWord = sign.word;
             
             // Заполняем категории если еще не заполнены
             const categorySelect = document.getElementById('editSignCategory');
@@ -577,6 +517,7 @@ async function openEditSignModal(signId) {
 }
 
 function closeEditSignModal() {
+    document.getElementById('signDeleteButton').style.display = 'none'; // Скрываем кнопку удаления
     document.getElementById('editSignModal').classList.remove('show');
     currentSignId = null;
 }
@@ -623,28 +564,90 @@ async function updateSign(event) {
 }
 
 // Удаление жеста
-async function deleteSign(signId) {
-    if (!confirm('Вы уверены, что хотите удалить этот жест? Все связанные видео и синонимы также будут удалены.')) {
+// Показать модальное окно подтверждения удаления
+function showDeleteSignConfirmation() {
+    if (!window.currentSignWord) {
+        showNotification('Ошибка: слово жеста не найдено', 'error');
         return;
     }
+    
+    const signId = document.getElementById('editSignId').value;
+    if (!signId) {
+        showNotification('Ошибка: ID жеста не найден', 'error');
+        return;
+    }
+    
+    document.getElementById('deleteSignWordDisplay').textContent = window.currentSignWord;
+    document.getElementById('deleteSignConfirmInput').value = '';
+    document.getElementById('deleteSignError').style.display = 'none';
+    document.getElementById('confirmDeleteSignButton').disabled = true;
+    document.getElementById('deleteSignModal').classList.add('show');
+    
+    // Сохраняем ID жеста для удаления
+    window.signToDeleteId = signId;
+    
+    // Добавляем обработчик для проверки ввода
+    const confirmInput = document.getElementById('deleteSignConfirmInput');
+    confirmInput.addEventListener('input', function() {
+        const confirmButton = document.getElementById('confirmDeleteSignButton');
+        confirmButton.disabled = this.value.trim() !== window.currentSignWord;
+    });
+}
+
+// Закрытие модального окна подтверждения удаления
+function closeDeleteSignModal() {
+    document.getElementById('deleteSignModal').classList.remove('show');
+    document.getElementById('deleteSignConfirmInput').value = '';
+    document.getElementById('deleteSignError').style.display = 'none';
+}
+
+// Подтверждение удаления жеста
+async function confirmDeleteSign() {
+    const inputValue = document.getElementById('deleteSignConfirmInput').value.trim();
+    const signWord = window.currentSignWord;
+    const signId = window.signToDeleteId;
+    
+    if (inputValue !== signWord) {
+        showError('deleteSignError', 'Слово не совпадает. Введите точное слово жеста.');
+        return;
+    }
+    
+    if (!signId) {
+        showError('deleteSignError', 'Ошибка: ID жеста не найден');
+        return;
+    }
+    
+    const confirmButton = document.getElementById('confirmDeleteSignButton');
+    confirmButton.disabled = true;
+    confirmButton.textContent = 'Удаление...';
     
     try {
         const response = await apiRequest(`/api/v1/admin/signs/${signId}`, {
             method: 'DELETE'
         });
         
-        if (!response) return;
+        if (!response) {
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Удалить';
+            return;
+        }
         
         const data = await response.json();
         if (data.success) {
             showNotification('Жест удален', 'success');
+            closeDeleteSignModal();
+            closeEditSignModal();
             loadSigns(currentPage);
         } else {
-            showNotification(data.error?.message || 'Ошибка удаления', 'error');
+            showError('deleteSignError', data.error?.message || 'Ошибка удаления');
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Удалить';
         }
     } catch (error) {
         console.error('Ошибка удаления жеста:', error);
-        showNotification('Ошибка соединения с сервером', 'error');
+        showError('deleteSignError', 'Ошибка соединения с сервером');
+        confirmButton.disabled = false;
+        confirmButton.textContent = 'Удалить';
     }
 }
 
@@ -998,7 +1001,7 @@ async function deleteSynonym(synonymId) {
 
 // Закрытие модальных окон при клике вне их
 window.addEventListener('click', (event) => {
-    const modals = ['signModal', 'editSignModal', 'videoModal', 'synonymModal', 'viewVideoModal'];
+    const modals = ['signModal', 'editSignModal', 'videoModal', 'synonymModal', 'viewVideoModal', 'deleteSignModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
         if (event.target === modal) {

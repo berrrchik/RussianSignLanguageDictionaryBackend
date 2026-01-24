@@ -6,68 +6,9 @@ let currentDeleteCategorySigns = [];
 
 // Проверка авторизации при загрузке
 window.addEventListener('load', () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        window.location.href = '/admin/login';
-        return;
-    }
+    if (!checkAuth()) return;
     loadCategories();
 });
-
-// Функция выхода
-function logout() {
-    if (confirm('Вы уверены, что хотите выйти?')) {
-        localStorage.removeItem('authToken');
-        window.location.href = '/admin/login';
-    }
-}
-
-// Утилиты для API запросов
-async function apiRequest(url, options = {}) {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-        window.location.href = '/admin/login';
-        return null;
-    }
-
-    const defaultOptions = {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        }
-    };
-
-    const mergedOptions = {
-        ...defaultOptions,
-        ...options,
-        headers: {
-            ...defaultOptions.headers,
-            ...options.headers
-        }
-    };
-
-    const response = await fetch(url, mergedOptions);
-    
-    if (response.status === 401) {
-        localStorage.removeItem('authToken');
-        window.location.href = '/admin/login';
-        return null;
-    }
-
-    return response;
-}
-
-// Показать уведомление
-function showNotification(message, type = 'success') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
 
 // Загрузка категорий
 async function loadCategories() {
@@ -125,9 +66,8 @@ function renderCategories() {
                 <td>${category.name}</td>
                 <td>${category.order}</td>
                 <td>${signsCount}</td>
-                <td>
-                    <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="openEditCategoryModal('${category.id}')">Редактировать</button>
-                    <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="deleteCategory('${category.id}')">Удалить</button>
+                <td style="white-space: nowrap;">
+                    <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 1rem; display: inline-block;" onclick="openEditCategoryModal('${category.id}')">Редактировать</button>
                 </td>
             </tr>
         `;
@@ -140,6 +80,7 @@ function openCreateCategoryModal() {
     document.getElementById('categoryForm').reset();
     document.getElementById('categoryId').value = '';
     document.getElementById('categoryFormError').style.display = 'none';
+    document.getElementById('categoryDeleteButton').style.display = 'none'; // Скрываем кнопку удаления при создании
     document.getElementById('categoryModal').classList.add('show');
 }
 
@@ -156,7 +97,11 @@ async function openEditCategoryModal(categoryId) {
     document.getElementById('categoryName').value = category.name;
     document.getElementById('categoryOrder').value = category.order;
     document.getElementById('categoryFormError').style.display = 'none';
+    document.getElementById('categoryDeleteButton').style.display = 'inline-block'; // Показываем кнопку удаления при редактировании
     document.getElementById('categoryModal').classList.add('show');
+    
+    // Сохраняем название категории для подтверждения удаления
+    window.currentCategoryName = category.name;
 }
 
 function closeCategoryModal() {
@@ -226,11 +171,7 @@ function generateCategoryId() {
         .replace(/^_|_$/g, '');
 }
 
-function showError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-}
+// Функция showError теперь в common.js
 
 // Удаление категории
 async function deleteCategory(categoryId) {
@@ -487,9 +428,114 @@ async function confirmDeleteCategory() {
     }
 }
 
+// Показать модальное окно подтверждения удаления
+function showDeleteCategoryConfirmation() {
+    if (!window.currentCategoryName) {
+        showNotification('Ошибка: название категории не найдено', 'error');
+        return;
+    }
+    
+    const categoryId = document.getElementById('categoryId').value;
+    if (!categoryId) {
+        showNotification('Ошибка: ID категории не найден', 'error');
+        return;
+    }
+    
+    document.getElementById('deleteCategoryNameDisplay').textContent = window.currentCategoryName;
+    document.getElementById('deleteCategoryConfirmInput').value = '';
+    document.getElementById('deleteCategoryConfirmError').style.display = 'none';
+    document.getElementById('confirmDeleteCategoryButton').disabled = true;
+    document.getElementById('deleteCategoryConfirmModal').classList.add('show');
+    
+    // Сохраняем ID категории для удаления
+    window.categoryToDeleteId = categoryId;
+    
+    // Добавляем обработчик для проверки ввода
+    const confirmInput = document.getElementById('deleteCategoryConfirmInput');
+    confirmInput.addEventListener('input', function() {
+        const confirmButton = document.getElementById('confirmDeleteCategoryButton');
+        confirmButton.disabled = this.value.trim() !== window.currentCategoryName;
+    });
+}
+
+// Закрытие модального окна подтверждения удаления
+function closeDeleteCategoryConfirmModal() {
+    document.getElementById('deleteCategoryConfirmModal').classList.remove('show');
+    document.getElementById('deleteCategoryConfirmInput').value = '';
+    document.getElementById('deleteCategoryConfirmError').style.display = 'none';
+}
+
+// Подтверждение удаления категории (финальное)
+async function confirmDeleteCategoryFinal() {
+    const inputValue = document.getElementById('deleteCategoryConfirmInput').value.trim();
+    const categoryName = window.currentCategoryName;
+    const categoryId = window.categoryToDeleteId;
+    
+    if (inputValue !== categoryName) {
+        showError('deleteCategoryConfirmError', 'Название не совпадает. Введите точное название категории.');
+        return;
+    }
+    
+    if (!categoryId) {
+        showError('deleteCategoryConfirmError', 'Ошибка: ID категории не найден');
+        return;
+    }
+    
+    // Проверяем наличие жестов в категории
+    const response = await apiRequest(`/api/v1/admin/categories/${categoryId}/signs`);
+    if (!response) {
+        showError('deleteCategoryConfirmError', 'Ошибка проверки категории');
+        return;
+    }
+    
+    const data = await response.json();
+    if (data.success && data.data.length > 0) {
+        closeDeleteCategoryConfirmModal();
+        closeCategoryModal();
+        // Показываем модальное окно с предупреждением о жестах
+        currentDeleteCategoryId = categoryId;
+        currentDeleteCategorySigns = data.data;
+        showDeleteCategoryWarning(categoryId, data.data);
+        return;
+    }
+    
+    const confirmButton = document.getElementById('confirmDeleteCategoryButton');
+    confirmButton.disabled = true;
+    confirmButton.textContent = 'Удаление...';
+    
+    try {
+        const deleteResponse = await apiRequest(`/api/v1/admin/categories/${categoryId}`, {
+            method: 'DELETE'
+        });
+        
+        if (!deleteResponse) {
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Удалить';
+            return;
+        }
+        
+        const deleteData = await deleteResponse.json();
+        if (deleteData.success) {
+            showNotification('Категория удалена', 'success');
+            closeDeleteCategoryConfirmModal();
+            closeCategoryModal();
+            loadCategories();
+        } else {
+            showError('deleteCategoryConfirmError', deleteData.error?.message || 'Ошибка удаления');
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Удалить';
+        }
+    } catch (error) {
+        console.error('Ошибка удаления категории:', error);
+        showError('deleteCategoryConfirmError', 'Ошибка соединения с сервером');
+        confirmButton.disabled = false;
+        confirmButton.textContent = 'Удалить';
+    }
+}
+
 // Закрытие модальных окон при клике вне их
 window.addEventListener('click', (event) => {
-    const modals = ['categoryModal', 'deleteCategoryModal'];
+    const modals = ['categoryModal', 'deleteCategoryModal', 'deleteCategoryConfirmModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
         if (event.target === modal) {

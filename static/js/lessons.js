@@ -396,8 +396,8 @@ function getFullVideoUrl(videoUrl) {
         return videoUrl;
     }
     
+    // Если относительный путь (для обратной совместимости со старыми данными)
     // Формируем полный URL для Supabase
-    // URL Supabase: https://lesulvngqpvgepijazin.supabase.co/storage/v1/object/public/
     const supabaseBaseUrl = 'https://lesulvngqpvgepijazin.supabase.co/storage/v1/object/public';
     return `${supabaseBaseUrl}/${videoUrl}`;
 }
