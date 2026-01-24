@@ -8,6 +8,7 @@ from sqlalchemy import func
 from app.database import db
 from app.models.category import Category
 from app.models.sign import Sign
+from app.models.sign_video import SignVideo
 from app.utils.auth import require_auth
 from app.utils.sync import update_sync_metadata
 from app.utils.validators import validate_sign_data, validate_entity_exists
@@ -286,6 +287,19 @@ def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
         description: Жест не найден
     """
     sign = Sign.query.get_or_404(sign_id)
+    
+    videos = SignVideo.query.filter_by(sign_id=sign_id).all()
+    if videos:
+        try:
+            from app.utils.storage import get_video_storage
+            storage = get_video_storage()
+            
+            for video in videos:
+                if not storage.delete(video.file_path):
+                    current_app.logger.warning(f"Не удалось удалить файл {video.file_path} из хранилища")
+        except Exception as e:
+            current_app.logger.warning(f"Ошибка при удалении видео из хранилища: {e}")
+    
     db.session.delete(sign)
     db.session.commit()
     
