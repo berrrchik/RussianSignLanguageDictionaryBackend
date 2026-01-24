@@ -326,9 +326,15 @@ def delete_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
         # Создаем клиент Supabase (URL должен быть без trailing slash)
         supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
         
-        # Формируем имя файла: lesson-N.mp4 (с дефисом для Supabase)
-        filename = lesson.id.replace('_', '-') + '.mp4'
-        storage_path = filename  # В bucket lessons файлы хранятся прямо в корне
+        if lesson.video_url.startswith('http://') or lesson.video_url.startswith('https://'):
+            try:
+                storage_path = lesson.video_url.split('/')[-1]
+            except Exception:
+                storage_path = lesson.id.replace('_', '-') + '.mp4'
+        elif lesson.video_url.startswith('lessons/'):
+            storage_path = lesson.video_url.replace('lessons/', '')
+        else:
+            storage_path = lesson.id.replace('_', '-') + '.mp4'
         
         # Удаляем файл из Supabase Storage
         try:
@@ -431,11 +437,11 @@ def upload_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
             file_options={"content-type": "video/mp4", "upsert": "true"}
         )
         
-        # Получаем публичный URL
+        # Получаем публичный URL (полный URL)
         public_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
         
-        # Формируем относительный URL для БД: lessons/lesson-N.mp4
-        video_url = f"lessons/{filename}"
+        # Сохраняем полный URL в базу данных
+        video_url = public_url
         
         # Обновляем video_url в уроке
         lesson.video_url = video_url
@@ -444,7 +450,7 @@ def upload_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
         # Обновление метаданных синхронизации
         update_sync_metadata()
         
-        return success_response(data={'video_url': video_url, 'public_url': public_url}, message='Видео загружено успешно')
+        return success_response(data={'video_url': video_url}, message='Видео загружено успешно')
         
     except Exception as e:
         db.session.rollback()
