@@ -90,7 +90,7 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
       404:
         description: Жест не найден
     """
-    Sign.query.get_or_404(sign_id)
+    sign = Sign.query.get_or_404(sign_id)
     
     if 'file' not in request.files:
         return error_response('NO_FILE', 'Файл не загружен', 400)
@@ -100,9 +100,16 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
         return error_response('NO_FILE', 'Файл не выбран', 400)
     
     # Валидация
+    # Конвертируем order в int (из формы приходит строка)
+    order_value = request.form.get('order', '0')
+    try:
+        order_value = int(order_value)
+    except (ValueError, TypeError):
+        order_value = 0
+    
     form_data = {
         'context_description': request.form.get('context_description', ''),
-        'order': request.form.get('order', 0)
+        'order': order_value
     }
     errors = validate_video_data(form_data, file)
     if errors:
@@ -126,8 +133,9 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
         )
     
     # Сохранение файла через абстракцию хранилища
+    # Передаем category_id для правильной структуры папок в Supabase
     storage = get_video_storage()
-    file_path, url = storage.upload(file, sign_id, file.filename)
+    file_path, url = storage.upload(file, sign_id, file.filename, category_id=sign.category_id)
     
     # Создание записи в БД
     video = SignVideo(
@@ -135,7 +143,7 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
         file_path=file_path,
         url=url,
         context_description=request.form['context_description'],
-        order=int(request.form.get('order', 0))
+        order=order_value
     )
     db.session.add(video)
     db.session.commit()
