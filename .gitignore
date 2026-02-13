@@ -48,12 +48,18 @@ logs/
 *.sqlite
 *.sqlite3
 
+# Backups
+backups/
+*.dump
+
 # Data files (большие файлы)
 signs_data.json
 
 # Video files (загруженные видео)
 static/videos/*
 !static/videos/.gitkeep
+videos/*
+!videos/.gitkeep
 
 # OS
 .DS_Store

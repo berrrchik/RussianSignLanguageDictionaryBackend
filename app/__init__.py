@@ -67,13 +67,29 @@ def create_app(config_class=Config):
     from app.routes.admin import admin_pages_bp
     app.register_blueprint(admin_pages_bp, url_prefix='/admin')
     
-    from flask import send_from_directory
-    @app.route('/videos/<filename>')
-    def serve_video(filename):
-        """Раздача видео файлов."""
+    from flask import send_from_directory, safe_join, abort
+    @app.route('/videos/<path:filepath>')
+    def serve_video(filepath):
+        """
+        Раздача видео файлов.
+        Поддерживает:
+        - Файлы в корне: /videos/video1.mp4
+        - Файлы в подпапках: /videos/signs/video1.mp4, /videos/lessons/lesson1.mp4
+        """
         from pathlib import Path
         video_path = Path(app.config['VIDEO_STORAGE_PATH'])
-        return send_from_directory(str(video_path), filename)
+        # Безопасное объединение путей для предотвращения path traversal
+        try:
+            full_path = safe_join(str(video_path), filepath)
+            if full_path and Path(full_path).exists():
+                # Определяем директорию и имя файла
+                file_path = Path(full_path)
+                directory = str(file_path.parent)
+                filename = file_path.name
+                return send_from_directory(directory, filename)
+            abort(404)
+        except (ValueError, TypeError):
+            abort(404)
     
     swagger_config = {
         "headers": [],
@@ -138,6 +154,10 @@ def create_app(config_class=Config):
             {
                 "name": "Синонимы",
                 "description": "Управление синонимами жестов"
+            },
+            {
+                "name": "Уроки",
+                "description": "CRUD операции для уроков"
             },
             {
                 "name": "Поиск",
@@ -322,6 +342,33 @@ def create_app(config_class=Config):
                 },
                 "required": ["last_updated", "has_updates"]
             },
+            "Lesson": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string", "example": "lesson_1"},
+                    "title": {"type": "string", "example": "Раздел ЭТО ВАЖНО"},
+                    "description": {"type": "string", "example": "Описание урока"},
+                    "video_url": {"type": "string", "example": "lessons/lesson-1.mp4"},
+                    "order": {"type": "integer", "example": 1},
+                    "created_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245},
+                    "updated_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
+                },
+                "required": ["id", "title", "description", "video_url", "order"]
+            },
+            "LessonRaw": {
+                "type": "object",
+                "description": "Урок (Raw формат с Unix timestamp)",
+                "properties": {
+                    "id": {"type": "string", "example": "lesson_1"},
+                    "title": {"type": "string", "example": "Раздел ЭТО ВАЖНО"},
+                    "description": {"type": "string", "example": "Описание урока"},
+                    "video_url": {"type": "string", "example": "lessons/lesson-1.mp4"},
+                    "order": {"type": "integer", "example": 1},
+                    "created_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245},
+                    "updated_at": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
+                },
+                "required": ["id", "title", "description", "video_url", "order", "created_at", "updated_at"]
+            },
             "SyncDataRaw": {
                 "type": "object",
                 "description": "Полные данные синхронизации (Raw формат)",
@@ -334,9 +381,13 @@ def create_app(config_class=Config):
                         "type": "array",
                         "items": {"$ref": "#/definitions/SignRaw"}
                     },
+                    "lessons": {
+                        "type": "array",
+                        "items": {"$ref": "#/definitions/LessonRaw"}
+                    },
                     "last_updated": {"type": "integer", "description": "Unix timestamp (секунды)", "example": 1705318245}
                 },
-                "required": ["categories", "signs", "last_updated"]
+                "required": ["categories", "signs", "lessons", "last_updated"]
             },
             "RawErrorResponse": {
                 "type": "object",
