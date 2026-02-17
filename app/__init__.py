@@ -51,6 +51,15 @@ def create_app(config_class=Config):
     # app.before_request(before_request)
     # app.after_request(after_request)
     
+    # Инициализация метрик Prometheus
+    try:
+        from prometheus_flask_exporter import PrometheusMetrics
+        metrics = PrometheusMetrics(app)
+        # Экспорт метрик будет доступен на /metrics
+    except ImportError:
+        # Если prometheus-flask-exporter не установлен, продолжаем без метрик
+        pass
+    
     CORS(app, resources={
         r"/api/*": {
             "origins": "*",  # В production указать конкретные домены
