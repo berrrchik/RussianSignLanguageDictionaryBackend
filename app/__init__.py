@@ -67,7 +67,8 @@ def create_app(config_class=Config):
     from app.routes.admin import admin_pages_bp
     app.register_blueprint(admin_pages_bp, url_prefix='/admin')
     
-    from flask import send_from_directory, safe_join, abort
+    from flask import send_from_directory, abort
+    from werkzeug.utils import safe_join
     @app.route('/videos/<path:filepath>')
     def serve_video(filepath):
         """
