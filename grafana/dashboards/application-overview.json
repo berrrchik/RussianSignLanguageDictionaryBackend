@@ -8,13 +8,13 @@
   "panels": [
     {
       "id": 1,
-      "title": "HTTP Requests Rate",
+      "title": "Sync Check Requests Rate",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
       "targets": [
         {
-          "expr": "sum(rate(flask_http_request_total[5m])) by (method, path)",
-          "legendFormat": "{{method}} {{path}}",
+          "expr": "sum(rate(sign_language_sync_check_total[5m])) by (has_updates)",
+          "legendFormat": "has_updates={{has_updates}}",
           "refId": "A",
           "datasource": {
             "type": "prometheus"
@@ -34,13 +34,13 @@
     },
     {
       "id": 2,
-      "title": "HTTP Status Codes",
+      "title": "Full Sync Requests Rate",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "targets": [
         {
-          "expr": "sum(rate(flask_http_request_total[5m])) by (status)",
-          "legendFormat": "{{status}}",
+          "expr": "sum(rate(sign_language_sync_data_total[5m]))",
+          "legendFormat": "Full Sync",
           "refId": "A",
           "datasource": {
             "type": "prometheus"
@@ -60,13 +60,13 @@
     },
     {
       "id": 3,
-      "title": "Response Time (p95)",
+      "title": "Sync Duration (p95)",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le, method, path))",
-          "legendFormat": "p95 {{method}} {{path}}",
+          "expr": "histogram_quantile(0.95, sum(rate(sign_language_sync_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
           "refId": "A",
           "datasource": {
             "type": "prometheus"
@@ -85,12 +85,12 @@
     },
     {
       "id": 4,
-      "title": "Response Time (p50, p95, p99)",
+      "title": "Sync Duration (p50, p95, p99)",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(sign_language_sync_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p50",
           "refId": "A",
           "datasource": {
@@ -98,7 +98,7 @@
           }
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(sign_language_sync_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p95",
           "refId": "B",
           "datasource": {
@@ -106,7 +106,7 @@
           }
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(flask_http_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(sign_language_sync_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p99",
           "refId": "C",
           "datasource": {
@@ -126,22 +126,14 @@
     },
     {
       "id": 5,
-      "title": "Error Rate (4xx, 5xx)",
+      "title": "Search Requests Rate",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
       "targets": [
         {
-          "expr": "sum(rate(flask_http_request_total{status=~\"4..\"}[5m]))",
-          "legendFormat": "4xx Errors",
+          "expr": "sum(rate(sign_language_search_requests_total[5m]))",
+          "legendFormat": "Search Requests",
           "refId": "A",
-          "datasource": {
-            "type": "prometheus"
-          }
-        },
-        {
-          "expr": "sum(rate(flask_http_request_total{status=~\"5..\"}[5m]))",
-          "legendFormat": "5xx Errors",
-          "refId": "B",
           "datasource": {
             "type": "prometheus"
           }
@@ -151,7 +143,8 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear"
+            "lineInterpolation": "linear",
+            "fillOpacity": 10
           },
           "unit": "reqps"
         }
@@ -159,12 +152,12 @@
     },
     {
       "id": 6,
-      "title": "Active Requests",
+      "title": "Active Admin Sessions",
       "type": "stat",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
       "targets": [
         {
-          "expr": "flask_http_request_active",
+          "expr": "sign_language_admin_active_sessions",
           "refId": "A",
           "datasource": {
             "type": "prometheus"
@@ -191,8 +184,8 @@
             "mode": "absolute",
             "steps": [
               {"value": null, "color": "green"},
-              {"value": 10, "color": "yellow"},
-              {"value": 50, "color": "red"}
+              {"value": 1, "color": "yellow"},
+              {"value": 5, "color": "red"}
             ]
           }
         }
