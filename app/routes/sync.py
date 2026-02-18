@@ -235,8 +235,8 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
     
     # Используем декоратор для измерения времени синхронизации
     with sync_duration.time():
-    # Получаем категории
-    categories = Category.query.order_by(Category.order).all()
+        # Получаем категории
+        categories = Category.query.order_by(Category.order).all()
     
     # Получаем жесты с видео
     signs = Sign.query.options(
