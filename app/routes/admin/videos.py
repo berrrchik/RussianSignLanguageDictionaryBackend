@@ -142,32 +142,41 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
     # Передаем category_id для правильной структуры папок в Supabase
     try:
         storage = get_video_storage()
-        file_path, url = storage.upload(file, sign_id, file.filename, category_id=sign.category_id)
-        
+        file_path, url = storage.upload(
+            file,
+            sign_id,
+            file.filename,
+            category_id=sign.category_id,
+        )
+
         # Создание записи в БД
         video = SignVideo(
             sign_id=sign_id,
             file_path=file_path,
             url=url,
-            context_description=request.form['context_description'],
-            order=order_value
+            context_description=request.form["context_description"],
+            order=order_value,
         )
         db.session.add(video)
         db.session.commit()
-        
+
         # Обновление метаданных синхронизации
         update_sync_metadata()
-        
+
         # Добавляем метрики и логирование
-        admin_video_uploads.labels(status='success').inc()
+        admin_video_uploads.labels(status="success").inc()
         admin_video_upload_size.observe(file_size)
-        
-        log_business_event(logger, "Video uploaded", {
-            "sign_id": sign_id,
-            "file_size": file_size,
-            "video_id": video.id
-        })
-        
+
+        log_business_event(
+            logger,
+            "Video uploaded",
+            {
+                "sign_id": sign_id,
+                "file_size": file_size,
+                "video_id": video.id,
+            },
+        )
+
         return success_response(data=video.to_dict(), status_code=201)
         
     except Exception as e:
