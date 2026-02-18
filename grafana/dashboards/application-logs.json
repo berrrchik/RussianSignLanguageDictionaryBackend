@@ -1,0 +1,110 @@
+{
+  "dashboard": {
+    "title": "Application Logs",
+    "tags": ["sign-language", "logs"],
+    "timezone": "browser",
+    "schemaVersion": 27,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Logs Explorer",
+        "type": "logs",
+        "gridPos": {"h": 20, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "{job=\"sign-language-backend\"}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending",
+          "wrapLogMessage": false
+        }
+      },
+      {
+        "id": 2,
+        "title": "Logs by Level",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "sum(count_over_time({job=\"sign-language-backend\"} |= \"level\" | json | level=~\"ERROR|WARNING|INFO\"[5m])) by (level)",
+            "legendFormat": "{{level}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Logs"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Error Logs",
+        "type": "logs",
+        "gridPos": {"h": 12, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {
+            "expr": "{job=\"sign-language-backend\"} |= \"ERROR\" or |= \"CRITICAL\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Slow Requests (>500ms)",
+        "type": "logs",
+        "gridPos": {"h": 12, "w": 12, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "{job=\"sign-language-backend\"} | json | duration_ms > 500",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending"
+        }
+      },
+      {
+        "id": 5,
+        "title": "HTTP Status Codes from Logs",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+        "targets": [
+          {
+            "expr": "sum(count_over_time({job=\"sign-language-backend\"} | json | status_code=~\"[45]..\"[5m])) by (status_code)",
+            "legendFormat": "{{status_code}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Requests"},
+          {"format": "short"}
+        ]
+      }
+    ]
+  }
+}

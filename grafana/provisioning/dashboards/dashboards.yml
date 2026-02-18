@@ -1,0 +1,22 @@
+# =============================================================================
+# ПРАКТИЧЕСКАЯ РАБОТА №4 - ЗАКОММЕНТИРОВАНО
+# Файл создан для демонстрации Loki + Grafana + Promtail
+# Больше не используется, но сохранён для справки
+# =============================================================================
+
+# # Автоматическая настройка дашбордов Grafana
+# # Практическая работа №4 - Berchik Anastasia Sergeevna
+# 
+# apiVersion: 1
+# 
+# providers:
+#   - name: 'default'
+#     orgId: 1
+#     folder: 'Sign Language App'
+#     folderUid: 'sign-language-app'
+#     type: file
+#     disableDeletion: false
+#     updateIntervalSeconds: 10
+#     allowUiUpdates: true
+#     options:
+#       path: /etc/grafana/provisioning/dashboards/json
