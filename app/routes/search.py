@@ -2,15 +2,24 @@
 Endpoints для поиска жестов.
 """
 from typing import Tuple, Dict, Any
+import time
 from flask import Blueprint, request, current_app
 
 from app.services.sbert_search_service import get_sbert_search_service
 from app.utils.responses import success_response, error_response
 from app.utils.decorators import handle_db_errors, require_json
 from app.constants import MAX_DESCRIPTION_LENGTH
-
+from app.utils.metrics import (
+    search_requests_total,
+    search_duration,
+    search_results_count,
+    search_avg_similarity,
+    search_empty_results
+)
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('search', __name__)
+logger = get_logger(__name__)
 
 
 @bp.route('/sbert', methods=['POST'])
@@ -111,6 +120,10 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
     # Путь к модели (опционально)
     model_path = data.get('model_path', 'ai-forever/sbert_large_nlu_ru')
     
+    # Начинаем измерение времени
+    start_time = time.time()
+    search_requests_total.inc()
+    
     try:
         # Получение сервиса поиска
         search_service = get_sbert_search_service(model_path=model_path)
@@ -122,6 +135,9 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
             min_similarity=min_similarity
         )
         
+        duration = time.time() - start_time
+        search_duration.observe(duration)
+        
         # Форматирование результатов
         formatted_results = [
             {
@@ -131,6 +147,27 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
             }
             for sign_id, word, similarity in results
         ]
+        
+        if formatted_results:
+            # Вычисляем среднюю релевантность
+            avg_sim = sum(r['similarity'] for r in formatted_results) / len(formatted_results)
+            search_avg_similarity.observe(avg_sim)
+            search_results_count.observe(len(formatted_results))
+            
+            log_business_event(logger, "Semantic search performed", {
+                "query": text,
+                "results_count": len(formatted_results),
+                "avg_similarity": avg_sim,
+                "duration_ms": duration * 1000,
+                "model": model_path
+            })
+        else:
+            search_empty_results.inc()
+            log_business_event(logger, "Semantic search - no results", {
+                "query": text,
+                "duration_ms": duration * 1000,
+                "model": model_path
+            })
         
         return success_response(data={
             'query': text,

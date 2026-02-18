@@ -28,8 +28,16 @@ from app.utils.error_handlers import raw_error_handler
 from app.utils.etag import create_response_with_etag
 from app.utils.sync import get_or_create_sync_metadata
 from app.utils.synonyms import get_sign_synonyms
+from app.utils.metrics import (
+    sync_check_total,
+    sync_data_total,
+    sync_data_size,
+    sync_duration
+)
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('sync', __name__)
+logger = get_logger(__name__)
 
 
 def _build_sign_raw_response(sign: Sign) -> SignRawResponse:
@@ -142,6 +150,15 @@ def check_updates_raw() -> Tuple[Dict[str, Any], int]:
         has_updates=has_updates
     )
     
+    # Добавляем метрику и логирование
+    sync_check_total.labels(has_updates=str(has_updates)).inc()
+    
+    log_business_event(logger, "Sync check requested", {
+        "has_updates": has_updates,
+        "last_updated": metadata.last_updated.timestamp() if metadata.last_updated else None,
+        "client_timestamp": client_timestamp_str
+    })
+    
     data = response.model_dump()
     
     # Используем утилиту для ETag
@@ -216,6 +233,8 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
     # Логируем использование raw endpoint для аналитики миграции
     current_app.logger.info("Raw endpoint accessed: /data/raw")
     
+    # Используем декоратор для измерения времени синхронизации
+    with sync_duration.time():
     # Получаем категории
     categories = Category.query.order_by(Category.order).all()
     
@@ -274,6 +293,18 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
         lessons=lessons_response,
         last_updated=metadata.last_updated
     )
+        
+        # Добавляем метрики
+        sync_data_total.inc()
+        sync_data_size.labels(data_type='categories').observe(len(categories_response))
+        sync_data_size.labels(data_type='signs').observe(len(signs_response))
+        sync_data_size.labels(data_type='lessons').observe(len(lessons_response))
+        
+        log_business_event(logger, "Full sync completed", {
+            "categories_count": len(categories_response),
+            "signs_count": len(signs_response),
+            "lessons_count": len(lessons_response)
+        })
     
     # Создаем словарь данных для генерации ETag (точно как в ответе)
     data = response.model_dump()
