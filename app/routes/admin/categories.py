@@ -18,8 +18,11 @@ from app.utils.responses import (
     validation_error_response
 )
 from app.utils.sorting import sort_signs_russian
+from app.utils.metrics import admin_category_operations
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('admin_categories', __name__)
+logger = get_logger(__name__)
 
 
 @bp.route('/categories', methods=['GET'])
@@ -126,6 +129,14 @@ def create_category() -> Tuple[Dict[str, Any], int]:
     # Обновление метаданных синхронизации
     update_sync_metadata()
     
+    # Добавляем метрику и логирование
+    admin_category_operations.labels(operation='create').inc()
+    
+    log_business_event(logger, "Category created", {
+        "category_id": category.id,
+        "name": category.name
+    })
+    
     return success_response(data=category.to_dict(), status_code=201)
 
 
@@ -180,6 +191,13 @@ def update_category(category_id: str) -> Tuple[Dict[str, Any], int]:
     # Обновление метаданных синхронизации
     update_sync_metadata()
     
+    # Добавляем метрику и логирование
+    admin_category_operations.labels(operation='update').inc()
+    
+    log_business_event(logger, "Category updated", {
+        "category_id": category_id
+    })
+    
     return success_response(data=category.to_dict())
 
 
@@ -223,6 +241,13 @@ def delete_category(category_id: str) -> Tuple[Dict[str, Any], int]:
     
     # Обновление метаданных синхронизации
     update_sync_metadata()
+    
+    # Добавляем метрику и логирование
+    admin_category_operations.labels(operation='delete').inc()
+    
+    log_business_event(logger, "Category deleted", {
+        "category_id": category_id
+    })
     
     return success_response(message='Категория удалена')
 

@@ -21,8 +21,11 @@ from app.utils.responses import (
 )
 from app.utils.sorting import sort_signs_russian
 from app.constants import DEFAULT_PAGE, DEFAULT_PER_PAGE
+from app.utils.metrics import admin_sign_operations
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('admin_signs', __name__)
+logger = get_logger(__name__)
 
 
 @bp.route('/signs', methods=['GET'])
@@ -199,6 +202,15 @@ def create_sign() -> Tuple[Dict[str, Any], int]:
     # Обновление метаданных синхронизации
     update_sync_metadata()
     
+    # Добавляем метрику и логирование
+    admin_sign_operations.labels(operation='create').inc()
+    
+    log_business_event(logger, "Sign created", {
+        "sign_id": sign.id,
+        "word": sign.word,
+        "category_id": sign.category_id
+    })
+    
     return success_response(data=sign.to_dict(), status_code=201)
 
 
@@ -261,6 +273,13 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     # Обновление метаданных синхронизации
     update_sync_metadata()
     
+    # Добавляем метрику и логирование
+    admin_sign_operations.labels(operation='update').inc()
+    
+    log_business_event(logger, "Sign updated", {
+        "sign_id": sign_id
+    })
+    
     return success_response(data=sign.to_dict())
 
 
@@ -305,6 +324,13 @@ def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     
     # Обновление метаданных синхронизации
     update_sync_metadata()
+    
+    # Добавляем метрику и логирование
+    admin_sign_operations.labels(operation='delete').inc()
+    
+    log_business_event(logger, "Sign deleted", {
+        "sign_id": sign_id
+    })
     
     return success_response(message='Жест удалён')
 

@@ -11,8 +11,14 @@ from app.models.admin_user import AdminUser
 from app.utils.auth import generate_token
 from app.utils.decorators import handle_db_errors, require_json
 from app.utils.responses import error_response, success_response
+from app.utils.metrics import (
+    admin_auth_attempts,
+    admin_active_sessions
+)
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('admin_auth', __name__)
+logger = get_logger(__name__)
 
 
 @bp.route('/auth/login', methods=['POST'])
@@ -86,11 +92,28 @@ def login() -> Tuple[Dict[str, Any], int]:
             current_app.config['JWT_EXPIRATION_DELTA']
         )
         
+        # Добавляем метрики и логирование
+        admin_auth_attempts.labels(status='success').inc()
+        admin_active_sessions.inc()
+        
+        log_business_event(logger, "Admin login successful", {
+            "username": username,
+            "ip_address": request.remote_addr
+        })
+        
         return success_response(
             data={
                 'token': token,
                 'expires_in': current_app.config['JWT_EXPIRATION_DELTA']
             }
         )
+    
+    # Неудачная авторизация
+    admin_auth_attempts.labels(status='failure').inc()
+    
+    log_business_event(logger, "Admin login failed", {
+        "username": username,
+        "ip_address": request.remote_addr
+    })
     
     return error_response('INVALID_CREDENTIALS', 'Неверный username или password', 401)

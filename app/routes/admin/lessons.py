@@ -16,8 +16,11 @@ from app.utils.responses import (
     error_response,
 )
 from app.utils.id_generator import generate_lesson_id
+from app.utils.metrics import admin_lesson_operations
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('admin_lessons', __name__)
+logger = get_logger(__name__)
 
 
 @bp.route('/lessons', methods=['GET'])
@@ -146,6 +149,14 @@ def create_lesson() -> Tuple[Dict[str, Any], int]:
     # Обновление метаданных синхронизации
     update_sync_metadata()
     
+    # Добавляем метрику и логирование
+    admin_lesson_operations.labels(operation='create').inc()
+    
+    log_business_event(logger, "Lesson created", {
+        "lesson_id": lesson.id,
+        "title": lesson.title
+    })
+    
     return success_response(data=lesson.to_dict(), status_code=201)
 
 
@@ -208,6 +219,13 @@ def update_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
     
     # Обновление метаданных синхронизации
     update_sync_metadata()
+    
+    # Добавляем метрику и логирование
+    admin_lesson_operations.labels(operation='update').inc()
+    
+    log_business_event(logger, "Lesson updated", {
+        "lesson_id": lesson_id
+    })
     
     return success_response(data=lesson.to_dict())
 
@@ -276,6 +294,13 @@ def delete_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
     
     # Обновление метаданных синхронизации
     update_sync_metadata()
+    
+    # Добавляем метрику и логирование
+    admin_lesson_operations.labels(operation='delete').inc()
+    
+    log_business_event(logger, "Lesson deleted", {
+        "lesson_id": lesson_id
+    })
     
     return success_response(message='Урок удален')
 

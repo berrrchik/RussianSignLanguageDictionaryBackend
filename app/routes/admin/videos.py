@@ -19,8 +19,14 @@ from app.utils.responses import (
     validation_error_response
 )
 from app.constants import VIDEO_MAX_SIZE
+from app.utils.metrics import (
+    admin_video_uploads,
+    admin_video_upload_size
+)
+from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('admin_videos', __name__)
+logger = get_logger(__name__)
 
 
 @bp.route('/signs/<sign_id>/videos', methods=['GET'])
@@ -134,24 +140,41 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
     
     # Сохранение файла через абстракцию хранилища
     # Передаем category_id для правильной структуры папок в Supabase
-    storage = get_video_storage()
-    file_path, url = storage.upload(file, sign_id, file.filename, category_id=sign.category_id)
-    
-    # Создание записи в БД
-    video = SignVideo(
-        sign_id=sign_id,
-        file_path=file_path,
-        url=url,
-        context_description=request.form['context_description'],
-        order=order_value
-    )
-    db.session.add(video)
-    db.session.commit()
-    
-    # Обновление метаданных синхронизации
-    update_sync_metadata()
-    
-    return success_response(data=video.to_dict(), status_code=201)
+    try:
+        storage = get_video_storage()
+        file_path, url = storage.upload(file, sign_id, file.filename, category_id=sign.category_id)
+        
+        # Создание записи в БД
+        video = SignVideo(
+            sign_id=sign_id,
+            file_path=file_path,
+            url=url,
+            context_description=request.form['context_description'],
+            order=order_value
+        )
+        db.session.add(video)
+        db.session.commit()
+        
+        # Обновление метаданных синхронизации
+        update_sync_metadata()
+        
+        # Добавляем метрики и логирование
+        admin_video_uploads.labels(status='success').inc()
+        admin_video_upload_size.observe(file_size)
+        
+        log_business_event(logger, "Video uploaded", {
+            "sign_id": sign_id,
+            "file_size": file_size,
+            "video_id": video.id
+        })
+        
+        return success_response(data=video.to_dict(), status_code=201)
+        
+    except Exception as e:
+        # Ошибка загрузки
+        admin_video_uploads.labels(status='failure').inc()
+        logger.error(f"Video upload error: {e}", exc_info=True)
+        raise
 
 
 @bp.route('/videos/<int:video_id>', methods=['PUT'])
