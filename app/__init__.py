@@ -54,7 +54,8 @@ def create_app(config_class=Config):
     # Инициализация метрик Prometheus
     try:
         from prometheus_flask_exporter import PrometheusMetrics
-        metrics = PrometheusMetrics(app)
+        # group_by='path' добавляет лейбл path в метрики flask_http_request_total
+        metrics = PrometheusMetrics(app, group_by='path')
         # Экспорт метрик будет доступен на /metrics
     except ImportError:
         # Если prometheus-flask-exporter не установлен, продолжаем без метрик
