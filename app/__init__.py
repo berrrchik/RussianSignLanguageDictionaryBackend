@@ -40,16 +40,15 @@ def create_app(config_class=Config):
     Compress(app)
     
     # =============================================================================
-    # ПРАКТИЧЕСКАЯ РАБОТА №4 - ЗАКОММЕНТИРОВАНО
     # Настройка структурированного логирования для Loki
     # =============================================================================
-    # from app.utils.logging_config import setup_logging, log_request
-    # setup_logging(app)
-    # 
-    # # Регистрация логирования запросов
-    # before_request, after_request = log_request()
-    # app.before_request(before_request)
-    # app.after_request(after_request)
+    from app.utils.logging_config import setup_logging, log_request
+    setup_logging(app)
+    
+    # Регистрация логирования запросов
+    before_request, after_request = log_request()
+    app.before_request(before_request)
+    app.after_request(after_request)
     
     # Инициализация метрик Prometheus
     try:
