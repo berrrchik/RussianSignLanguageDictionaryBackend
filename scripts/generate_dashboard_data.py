@@ -98,10 +98,19 @@ class DashboardDataGenerator:
         
         import sys
         import os
-        # Добавляем путь к скриптам для импорта
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        import importlib.util
         
-        from scripts.generate_monitoring_data import MonitoringDataGenerator, run_monitoring_generation
+        # Получаем абсолютный путь к скрипту generate_monitoring_data.py
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        monitoring_script_path = os.path.join(current_dir, 'generate_monitoring_data.py')
+        
+        # Загружаем модуль напрямую из файла
+        spec = importlib.util.spec_from_file_location("generate_monitoring_data", monitoring_script_path)
+        generate_monitoring_data = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(generate_monitoring_data)
+        
+        MonitoringDataGenerator = generate_monitoring_data.MonitoringDataGenerator
+        run_monitoring_generation = generate_monitoring_data.run_monitoring_generation
         
         generator = MonitoringDataGenerator(
             self.base_url,
