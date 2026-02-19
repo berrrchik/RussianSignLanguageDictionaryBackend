@@ -116,59 +116,77 @@ class DashboardDataGenerator:
         ]
         
         # GET запросы (50%)
-        for _ in range(int(num_requests * 0.20)):
-            request_functions.append(('GET /sync/check/raw', lambda: requests.get(
-                f'{self.base_url}/api/v1/sync/check/raw', timeout=10)))
+        # Быстрые запросы (sync/check) - 30%
+        for _ in range(int(num_requests * 0.30)):
+            def make_sync_check():
+                return requests.get(f'{self.base_url}/api/v1/sync/check/raw', timeout=5)
+            request_functions.append(('GET /sync/check/raw', make_sync_check))
         
-        for _ in range(int(num_requests * 0.15)):
-            request_functions.append(('GET /sync/data/raw', lambda: requests.get(
-                f'{self.base_url}/api/v1/sync/data/raw', timeout=30)))
+        # Медленные запросы (sync/data) - только для больших объёмов
+        # Для слабой VM лучше убрать эти запросы, они очень медленные
+        if num_requests >= 50:  # Только если достаточно запросов
+            for _ in range(int(num_requests * 0.05)):
+                def make_sync_data():
+                    return requests.get(f'{self.base_url}/api/v1/sync/data/raw', timeout=10)
+                request_functions.append(('GET /sync/data/raw', make_sync_data))
         
         if self.admin_token:
             for _ in range(int(num_requests * 0.05)):
-                request_functions.append(('GET /admin/signs', lambda: requests.get(
-                    f'{self.base_url}/api/v1/admin/signs',
-                    params={'page': 1, 'per_page': 20},
-                    headers=self._get_headers(auth=True),
-                    timeout=10)))
+                def make_admin_signs():
+                    return requests.get(
+                        f'{self.base_url}/api/v1/admin/signs',
+                        params={'page': 1, 'per_page': 20},
+                        headers=self._get_headers(auth=True),
+                        timeout=10)
+                request_functions.append(('GET /admin/signs', make_admin_signs))
             
             for _ in range(int(num_requests * 0.05)):
-                request_functions.append(('GET /admin/categories', lambda: requests.get(
-                    f'{self.base_url}/api/v1/admin/categories',
-                    headers=self._get_headers(auth=True),
-                    timeout=10)))
+                def make_admin_categories():
+                    return requests.get(
+                        f'{self.base_url}/api/v1/admin/categories',
+                        headers=self._get_headers(auth=True),
+                        timeout=10)
+                request_functions.append(('GET /admin/categories', make_admin_categories))
         
         # POST запросы (25%)
         for _ in range(int(num_requests * 0.20)):
             query = random.choice(search_queries)
-            request_functions.append(('POST /search/sbert', lambda q=query: requests.post(
-                f'{self.base_url}/api/v1/search/sbert',
-                json={'text': q, 'limit': 10},
-                headers=self._get_headers(),
-                timeout=15)))
+            def make_search(q=query):
+                return requests.post(
+                    f'{self.base_url}/api/v1/search/sbert',
+                    json={'text': q, 'limit': 10},
+                    headers=self._get_headers(),
+                    timeout=10)
+            request_functions.append(('POST /search/sbert', make_search))
         
         # Ошибки (25%)
         for _ in range(int(num_requests * 0.10)):
-            request_functions.append(('GET /nonexistent (404)', lambda: requests.get(
-                f'{self.base_url}/api/v1/nonexistent', timeout=5)))
+            def make_404():
+                return requests.get(f'{self.base_url}/api/v1/nonexistent', timeout=5)
+            request_functions.append(('GET /nonexistent (404)', make_404))
         
         for _ in range(int(num_requests * 0.05)):
-            request_functions.append(('DELETE /sync/check/raw (405)', lambda: requests.delete(
-                f'{self.base_url}/api/v1/sync/check/raw', timeout=5)))
+            def make_405():
+                return requests.delete(f'{self.base_url}/api/v1/sync/check/raw', timeout=5)
+            request_functions.append(('DELETE /sync/check/raw (405)', make_405))
         
         for _ in range(int(num_requests * 0.05)):
-            request_functions.append(('POST /search/sbert (invalid)', lambda: requests.post(
-                f'{self.base_url}/api/v1/search/sbert',
-                data='invalid json',
-                headers={'Content-Type': 'application/json'},
-                timeout=5)))
+            def make_invalid():
+                return requests.post(
+                    f'{self.base_url}/api/v1/search/sbert',
+                    data='invalid json',
+                    headers={'Content-Type': 'application/json'},
+                    timeout=5)
+            request_functions.append(('POST /search/sbert (invalid)', make_invalid))
         
         if not self.admin_token:
             for _ in range(int(num_requests * 0.05)):
-                request_functions.append(('GET /admin/signs (401)', lambda: requests.get(
-                    f'{self.base_url}/api/v1/admin/signs',
-                    headers=self._get_headers(auth=False),
-                    timeout=5)))
+                def make_401():
+                    return requests.get(
+                        f'{self.base_url}/api/v1/admin/signs',
+                        headers=self._get_headers(auth=False),
+                        timeout=5)
+                request_functions.append(('GET /admin/signs (401)', make_401))
         
         random.shuffle(request_functions)
         
@@ -216,6 +234,9 @@ class DashboardDataGenerator:
                 return None
         
         # Выполняем запросы параллельно
+        completed = 0
+        total = len(request_functions)
+        
         with ThreadPoolExecutor(max_workers=concurrent) as executor:
             futures = [
                 executor.submit(execute_request, name, func)
@@ -225,7 +246,11 @@ class DashboardDataGenerator:
             for future in as_completed(futures):
                 try:
                     future.result()
+                    completed += 1
+                    if completed % 5 == 0 or completed == total:
+                        print(f"  Прогресс: {completed}/{total} запросов выполнено...")
                 except Exception:
+                    completed += 1
                     pass
         
         elapsed_time = time.time() - start_time
