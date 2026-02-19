@@ -96,32 +96,169 @@ class DashboardDataGenerator:
         print("   - HTTP Status Codes")
         print("   - Active Requests\n")
         
-        import sys
-        import os
-        import importlib.util
+        print(f"🚀 Генерация данных для панелей мониторинга")
+        print(f"📍 Базовый URL: {self.base_url}")
+        print(f"📊 Количество запросов: {num_requests}")
+        print(f"⚡ Параллельных потоков: {concurrent}\n")
         
-        # Получаем абсолютный путь к скрипту generate_monitoring_data.py
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        monitoring_script_path = os.path.join(current_dir, 'generate_monitoring_data.py')
-        
-        # Загружаем модуль напрямую из файла
-        spec = importlib.util.spec_from_file_location("generate_monitoring_data", monitoring_script_path)
-        generate_monitoring_data = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(generate_monitoring_data)
-        
-        MonitoringDataGenerator = generate_monitoring_data.MonitoringDataGenerator
-        run_monitoring_generation = generate_monitoring_data.run_monitoring_generation
-        
-        generator = MonitoringDataGenerator(
-            self.base_url,
-            self.admin_username,
-            self.admin_password
-        )
-        
+        # Авторизация (если указаны credentials)
         if self.admin_username:
-            generator.login_admin()
+            if self.login_admin():
+                print("✅ Авторизация успешна\n")
+            else:
+                print("⚠️  Авторизация не удалась, будут использоваться только публичные endpoints\n")
         
-        run_monitoring_generation(generator, num_requests, concurrent, verbose=False)
+        # Создаем план запросов
+        request_functions = []
+        search_queries = [
+            "привет", "спасибо", "пожалуйста", "извините", "до свидания",
+            "как дела", "хорошо", "плохо", "да", "нет", "помощь", "вопрос"
+        ]
+        
+        # GET запросы (50%)
+        for _ in range(int(num_requests * 0.20)):
+            request_functions.append(('GET /sync/check/raw', lambda: requests.get(
+                f'{self.base_url}/api/v1/sync/check/raw', timeout=10)))
+        
+        for _ in range(int(num_requests * 0.15)):
+            request_functions.append(('GET /sync/data/raw', lambda: requests.get(
+                f'{self.base_url}/api/v1/sync/data/raw', timeout=30)))
+        
+        if self.admin_token:
+            for _ in range(int(num_requests * 0.05)):
+                request_functions.append(('GET /admin/signs', lambda: requests.get(
+                    f'{self.base_url}/api/v1/admin/signs',
+                    params={'page': 1, 'per_page': 20},
+                    headers=self._get_headers(auth=True),
+                    timeout=10)))
+            
+            for _ in range(int(num_requests * 0.05)):
+                request_functions.append(('GET /admin/categories', lambda: requests.get(
+                    f'{self.base_url}/api/v1/admin/categories',
+                    headers=self._get_headers(auth=True),
+                    timeout=10)))
+        
+        # POST запросы (25%)
+        for _ in range(int(num_requests * 0.20)):
+            query = random.choice(search_queries)
+            request_functions.append(('POST /search/sbert', lambda q=query: requests.post(
+                f'{self.base_url}/api/v1/search/sbert',
+                json={'text': q, 'limit': 10},
+                headers=self._get_headers(),
+                timeout=15)))
+        
+        # Ошибки (25%)
+        for _ in range(int(num_requests * 0.10)):
+            request_functions.append(('GET /nonexistent (404)', lambda: requests.get(
+                f'{self.base_url}/api/v1/nonexistent', timeout=5)))
+        
+        for _ in range(int(num_requests * 0.05)):
+            request_functions.append(('DELETE /sync/check/raw (405)', lambda: requests.delete(
+                f'{self.base_url}/api/v1/sync/check/raw', timeout=5)))
+        
+        for _ in range(int(num_requests * 0.05)):
+            request_functions.append(('POST /search/sbert (invalid)', lambda: requests.post(
+                f'{self.base_url}/api/v1/search/sbert',
+                data='invalid json',
+                headers={'Content-Type': 'application/json'},
+                timeout=5)))
+        
+        if not self.admin_token:
+            for _ in range(int(num_requests * 0.05)):
+                request_functions.append(('GET /admin/signs (401)', lambda: requests.get(
+                    f'{self.base_url}/api/v1/admin/signs',
+                    headers=self._get_headers(auth=False),
+                    timeout=5)))
+        
+        random.shuffle(request_functions)
+        
+        # Статистика
+        stats = {
+            'total': 0,
+            'success': 0,
+            'errors': 0,
+            'status_codes': {},
+            'methods': {},
+            'endpoints': {}
+        }
+        
+        start_time = time.time()
+        
+        def execute_request(name: str, func):
+            """Выполнить один запрос."""
+            try:
+                response = func()
+                status_code = response.status_code
+                
+                stats['total'] += 1
+                stats['status_codes'][status_code] = stats['status_codes'].get(status_code, 0) + 1
+                
+                if ' ' in name:
+                    method = name.split()[0]
+                    endpoint = name.split()[1] if len(name.split()) > 1 else name
+                else:
+                    method = 'UNKNOWN'
+                    endpoint = name
+                
+                stats['methods'][method] = stats['methods'].get(method, 0) + 1
+                stats['endpoints'][endpoint] = stats['endpoints'].get(endpoint, 0) + 1
+                
+                if 200 <= status_code < 400:
+                    stats['success'] += 1
+                else:
+                    stats['errors'] += 1
+                
+                return response
+            except Exception:
+                stats['total'] += 1
+                stats['errors'] += 1
+                stats['status_codes'][500] = stats['status_codes'].get(500, 0) + 1
+                return None
+        
+        # Выполняем запросы параллельно
+        with ThreadPoolExecutor(max_workers=concurrent) as executor:
+            futures = [
+                executor.submit(execute_request, name, func)
+                for name, func in request_functions
+            ]
+            
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception:
+                    pass
+        
+        elapsed_time = time.time() - start_time
+        
+        # Выводим статистику
+        print("\n" + "="*60)
+        print("📊 Статистика выполнения:")
+        print("="*60)
+        print(f"Всего запросов: {stats['total']}")
+        print(f"Успешных (2xx/3xx): {stats['success']}")
+        print(f"Ошибок (4xx/5xx): {stats['errors']}")
+        print(f"Время выполнения: {elapsed_time:.2f} сек")
+        if stats['total'] > 0:
+            print(f"Запросов в секунду: {stats['total'] / elapsed_time:.2f}")
+        
+        print("\n📈 Статус коды:")
+        for code in sorted(stats['status_codes'].keys()):
+            count = stats['status_codes'][code]
+            percentage = (count / stats['total']) * 100 if stats['total'] > 0 else 0
+            print(f"  {code}: {count} ({percentage:.1f}%)")
+        
+        print("\n🔧 HTTP методы:")
+        for method in sorted(stats['methods'].keys()):
+            count = stats['methods'][method]
+            percentage = (count / stats['total']) * 100 if stats['total'] > 0 else 0
+            print(f"  {method}: {count} ({percentage:.1f}%)")
+        
+        print("\n✅ Генерация данных завершена!")
+        print("💡 Проверьте панели в Grafana:")
+        print("   - HTTP Requests Rate")
+        print("   - HTTP Request Duration (p50, p95, p99)")
+        print("   - HTTP Status Codes")
+        print("   - Active Requests\n")
     
     # ========== Методы для Business Metrics ==========
     
