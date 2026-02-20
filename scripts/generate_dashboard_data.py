@@ -88,7 +88,7 @@ class DashboardDataGenerator:
     
     # ========== Методы для System Overview ==========
     
-    def generate_system_overview_data(self, num_requests: int = 200, concurrent: int = 10):
+    def generate_system_overview_data(self, num_requests: int = 200, concurrent: int = 10, verbose: bool = False):
         """Генерация данных для дашборда System Overview."""
         print("📊 Генерация данных для дашборда 'System Overview'...")
         print("   - HTTP Requests Rate")
@@ -100,6 +100,18 @@ class DashboardDataGenerator:
         print(f"📍 Базовый URL: {self.base_url}")
         print(f"📊 Количество запросов: {num_requests}")
         print(f"⚡ Параллельных потоков: {concurrent}\n")
+        
+        # Проверка доступности сервера
+        print("🔍 Проверка доступности сервера...")
+        try:
+            test_response = requests.get(f'{self.base_url}/api/v1/sync/check/raw', timeout=5)
+            print(f"✅ Сервер доступен (статус: {test_response.status_code})\n")
+        except requests.exceptions.ConnectionError:
+            print(f"❌ ОШИБКА: Не удалось подключиться к {self.base_url}")
+            print("   Убедитесь, что приложение запущено и доступно по указанному адресу.\n")
+            return
+        except Exception as e:
+            print(f"⚠️  Предупреждение: {type(e).__name__}: {str(e)[:100]}\n")
         
         # Авторизация (если указаны credentials)
         if self.admin_username:
@@ -223,14 +235,45 @@ class DashboardDataGenerator:
                 
                 if 200 <= status_code < 400:
                     stats['success'] += 1
+                    if verbose:
+                        print(f"  ✅ {name}: {status_code}")
                 else:
                     stats['errors'] += 1
+                    if verbose:
+                        print(f"  ⚠️  {name}: {status_code}")
                 
                 return response
-            except Exception:
+            except requests.exceptions.ConnectionError as e:
                 stats['total'] += 1
                 stats['errors'] += 1
-                stats['status_codes'][500] = stats['status_codes'].get(500, 0) + 1
+                stats['status_codes']['CONN_ERROR'] = stats['status_codes'].get('CONN_ERROR', 0) + 1
+                if verbose:
+                    print(f"  ❌ {name}: Connection Error - {str(e)[:100]}")
+                return None
+            except requests.exceptions.Timeout as e:
+                stats['total'] += 1
+                stats['errors'] += 1
+                stats['status_codes']['TIMEOUT'] = stats['status_codes'].get('TIMEOUT', 0) + 1
+                if verbose:
+                    print(f"  ⏱️  {name}: Timeout - {str(e)[:100]}")
+                return None
+            except requests.exceptions.RequestException as e:
+                stats['total'] += 1
+                stats['errors'] += 1
+                if hasattr(e, 'response') and e.response is not None:
+                    status_code = e.response.status_code
+                    stats['status_codes'][status_code] = stats['status_codes'].get(status_code, 0) + 1
+                else:
+                    stats['status_codes']['REQ_ERROR'] = stats['status_codes'].get('REQ_ERROR', 0) + 1
+                if verbose:
+                    print(f"  ⚠️  {name}: Request Error - {str(e)[:100]}")
+                return None
+            except Exception as e:
+                stats['total'] += 1
+                stats['errors'] += 1
+                stats['status_codes']['UNKNOWN'] = stats['status_codes'].get('UNKNOWN', 0) + 1
+                if verbose:
+                    print(f"  ❌ {name}: Unknown Error - {type(e).__name__}: {str(e)[:100]}")
                 return None
         
         # Выполняем запросы параллельно
@@ -249,8 +292,10 @@ class DashboardDataGenerator:
                     completed += 1
                     if completed % 5 == 0 or completed == total:
                         print(f"  Прогресс: {completed}/{total} запросов выполнено...")
-                except Exception:
+                except Exception as e:
                     completed += 1
+                    if verbose:
+                        print(f"  ⚠️  Ошибка выполнения: {type(e).__name__}: {str(e)[:100]}")
                     pass
         
         elapsed_time = time.time() - start_time
@@ -287,7 +332,7 @@ class DashboardDataGenerator:
     
     # ========== Методы для Business Metrics ==========
     
-    def generate_business_metrics_data(self, num_requests: int = 300, concurrent: int = 5):
+    def generate_business_metrics_data(self, num_requests: int = 300, concurrent: int = 5, verbose: bool = False):
         """Генерация данных для дашборда Business Metrics."""
         print("📊 Генерация данных для дашборда 'Business Metrics'...")
         print("   - Sync Check Requests")
@@ -374,7 +419,7 @@ class DashboardDataGenerator:
     
     # ========== Методы для Errors and Warnings ==========
     
-    def generate_errors_data(self, num_requests: int = 100, concurrent: int = 5):
+    def generate_errors_data(self, num_requests: int = 100, concurrent: int = 5, verbose: bool = False):
         """Генерация данных для дашборда Errors and Warnings."""
         print("📊 Генерация данных для дашборда 'Errors and Warnings'...")
         print("   - HTTP 5xx Error Rate")
@@ -460,7 +505,7 @@ class DashboardDataGenerator:
     
     # ========== Универсальный метод ==========
     
-    def generate_all_data(self, num_requests: int = 500, concurrent: int = 10):
+    def generate_all_data(self, num_requests: int = 500, concurrent: int = 10, verbose: bool = False):
         """Генерация данных для всех дашбордов."""
         print("="*60)
         print("🚀 Генерация данных для всех дашбордов")
@@ -474,11 +519,11 @@ class DashboardDataGenerator:
                 print("⚠️  Авторизация не удалась, будут использоваться только публичные endpoints\n")
         
         # System Overview
-        self.generate_system_overview_data(num_requests // 2, concurrent)
+        self.generate_system_overview_data(num_requests // 2, concurrent, verbose)
         time.sleep(2)
         
         # Business Metrics
-        self.generate_business_metrics_data(num_requests, concurrent)
+        self.generate_business_metrics_data(num_requests, concurrent, verbose)
         time.sleep(2)
         
         # Errors and Warnings
@@ -597,6 +642,12 @@ def main():
         help='Количество параллельных запросов (по умолчанию: 10)'
     )
     
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Подробный вывод (показывать детали каждого запроса)'
+    )
+    
     args = parser.parse_args()
     
     if not args.base_url.startswith(('http://', 'https://')):
@@ -611,13 +662,13 @@ def main():
     
     try:
         if args.dashboard == 'all':
-            generator.generate_all_data(args.num_requests, args.concurrent)
+            generator.generate_all_data(args.num_requests, args.concurrent, args.verbose)
         elif args.dashboard == 'system-overview':
-            generator.generate_system_overview_data(args.num_requests, args.concurrent)
+            generator.generate_system_overview_data(args.num_requests, args.concurrent, args.verbose)
         elif args.dashboard == 'business-metrics':
-            generator.generate_business_metrics_data(args.num_requests, args.concurrent)
+            generator.generate_business_metrics_data(args.num_requests, args.concurrent, args.verbose)
         elif args.dashboard == 'errors':
-            generator.generate_errors_data(args.num_requests // 3, args.concurrent)
+            generator.generate_errors_data(args.num_requests // 3, args.concurrent, args.verbose)
     except KeyboardInterrupt:
         print("\n\n⚠️  Прервано пользователем")
         sys.exit(1)
