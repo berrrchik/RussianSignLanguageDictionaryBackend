@@ -1,0 +1,58 @@
+# Конфигурация Prometheus для сбора метрик
+# Автор: Berchik Anastasia Sergeevna
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'sign-language-dict'
+    environment: 'production'
+
+# Конфигурация правил оповещений (опционально)
+# rule_files:
+#   - "alerts.yml"
+
+# Конфигурация сбора метрик
+scrape_configs:
+  # Метрики самого Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Метрики Flask приложения
+  - job_name: 'flask-app'
+    static_configs:
+      - targets: ['sign-language-backend:5001']
+        labels:
+          service: 'sign-language-backend'
+          app: 'flask'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Метрики PostgreSQL (если используется postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          service: 'postgresql'
+    scrape_interval: 15s
+
+  # Метрики Loki
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+        labels:
+          service: 'loki'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Метрики Promtail
+  - job_name: 'promtail'
+    static_configs:
+      - targets: ['promtail:9080']
+        labels:
+          service: 'promtail'
+    metrics_path: '/metrics'
+    scrape_interval: 15s
