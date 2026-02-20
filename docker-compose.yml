@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 16
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-sign-language
+    environment:
+      POSTGRES_DB: sign_language_dict
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init_schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      logging: "promtail"
+      author: "berchik-as"
+    restart: unless-stopped
+
+  # Sign Language Backend
+  sign-language-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sign-language-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sign_language_dict
+      FLASK_PORT: 5001
+      FLASK_DEBUG: "false"
+      FLASK_ENV: production
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production-generate-random-string-min-32-chars}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-generate-random-string-min-32-chars}
+      JWT_EXPIRATION_DELTA: 3600
+      VIDEO_STORAGE_TYPE: local
+      VIDEO_STORAGE_PATH: /app/static/videos
+      VIDEO_BASE_URL: http://localhost:5001/videos
+      LOG_FORMAT: json
+      LOG_LEVEL: INFO
+      LOG_FILE: /var/log/app/application.log
+    volumes:
+      - app_logs:/var/log/app
+      - ./static/videos:/app/static/videos
+    ports:
+      - "5001:5001"
+    networks:
+      - monitoring-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      logging: "promtail"
+      author: "berchik-as"
+    restart: unless-stopped
+
+  # Loki - система хранения логов
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki-sign-language
+    user: "0"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      author: "berchik-as"
+    restart: unless-stopped
+
+  # Promtail - агент для сбора логов
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail-sign-language
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - app_logs:/var/log/app:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring-net
+    depends_on:
+      - loki
+      - sign-language-backend
+    labels:
+      author: "berchik-as"
+    restart: unless-stopped
+
+  # Prometheus - система сбора метрик
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-sign-language
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      author: "berchik-as"
+    restart: unless-stopped
+
+  # Grafana - визуализация метрик и логов
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana-sign-language
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-clock-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring-net
+    depends_on:
+      - loki
+      - prometheus
+    labels:
+      author: "berchik-as"
+    restart: unless-stopped
+
+  # PostgreSQL Exporter для метрик PostgreSQL (опционально)
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter-sign-language
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/sign_language_dict?sslmode=disable"
+    ports:
+      - "9187:9187"
+    networks:
+      - monitoring-net
+    depends_on:
+      - postgres
+    labels:
+      author: "berchik-as"
+    restart: unless-stopped
+
+networks:
+  monitoring-net:
+    driver: bridge
+    name: monitoring-network-sign-language
+
+volumes:
+  postgres_data:
+    name: postgres-data-sign-language
+  loki_data:
+    name: loki-data-sign-language
+  grafana_data:
+    name: grafana-data-sign-language
+  prometheus_data:
+    name: prometheus-data-sign-language
+  app_logs:
+    name: app-logs-sign-language
