@@ -40,6 +40,23 @@ bp = Blueprint("sync", __name__)
 logger = get_logger(__name__)
 
 
+def _to_local_video_path(url_or_path: str) -> str:
+    """
+    Преобразует Supabase URL или относительный путь в локальный путь
+    вида /lessons/lesson-1.mp4 или /signs/alphabet/file.mp4.
+
+    Мобильное приложение склеивает videoBaseURL + этот путь.
+    """
+    if not url_or_path:
+        return url_or_path
+    if "/storage/v1/object/public/" in url_or_path:
+        path = url_or_path.split("/storage/v1/object/public/")[-1]
+        return f"/{path}" if not path.startswith("/") else path
+    if url_or_path.startswith("/"):
+        return url_or_path
+    return f"/{url_or_path}"
+
+
 def _build_sign_raw_response(sign: Sign) -> SignRawResponse:
     """
     Строит SignRawResponse из модели Sign с видео и синонимами.
@@ -65,10 +82,11 @@ def _build_sign_raw_response(sign: Sign) -> SignRawResponse:
                 f"Видео {video.order + 1}" if video.order > 0 else "Основное видео"
             )
 
+        video_path = video.file_path if video.file_path.startswith('/') else f"/{video.file_path}"
         videos.append(
             SignVideoRawResponse(
                 id=video.id,
-                url=video.url,
+                url=video_path,
                 context_description=context_desc,
                 order=video.order,
                 created_at=video.created_at,
@@ -292,7 +310,7 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
             id=lesson.id,
             title=lesson.title,
             description=lesson.description,
-            video_url=lesson.video_url,
+            video_url=_to_local_video_path(lesson.video_url),
             order=lesson.order,
             created_at=lesson.created_at,
             updated_at=lesson.updated_at,
