@@ -165,8 +165,10 @@ def update_category(category_id: str) -> Tuple[Dict[str, Any], int]:
           properties:
             name:
               type: string
+              example: "Алфавит"
             order:
               type: integer
+              example: 1
     responses:
       200:
         description: Категория обновлена

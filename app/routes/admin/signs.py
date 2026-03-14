@@ -239,10 +239,13 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
           properties:
             word:
               type: string
+              example: "привет"
             description:
               type: string
+              example: "Приветствие"
             category_id:
               type: string
+              example: "greetings"
     responses:
       200:
         description: Жест обновлён
