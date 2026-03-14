@@ -414,6 +414,18 @@ def create_app(config_class=Config):
     Swagger(app, config=swagger_config, template=swagger_template)
     
     register_error_handlers(app)
-    
+
+    # Предзагрузка SBERT в каждом воркере Gunicorn (опционально).
+    # Устраняет задержку ~2 мин при первом запросе к /api/v1/search/sbert.
+    # В .env на сервере: PRELOAD_SBERT=true
+    if os.environ.get("PRELOAD_SBERT", "").lower() in ("1", "true", "yes"):
+        try:
+            with app.app_context():
+                from app.services.sbert_search_service import get_sbert_search_service
+                get_sbert_search_service()
+                app.logger.info("SBERT модель предзагружена в воркере")
+        except Exception as e:
+            app.logger.warning("Предзагрузка SBERT не удалась (поиск будет работать при первом запросе): %s", e)
+
     return app
 
