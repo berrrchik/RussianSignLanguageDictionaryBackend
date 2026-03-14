@@ -185,12 +185,16 @@ def update_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
           properties:
             title:
               type: string
+              example: "Раздел 1"
             description:
               type: string
+              example: "Описание урока"
             video_url:
               type: string
+              example: "lessons/lesson-1.mp4"
             order:
               type: integer
+              example: 1
     responses:
       200:
         description: Урок обновлен
@@ -210,10 +214,16 @@ def update_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
     if not is_valid:
         return error_response('VALIDATION_ERROR', error_msg, 400)
     
-    # Обновление полей (ID не изменяется)
+    # Обновление полей (ID не изменяется). order приводим к int (Swagger может прислать "string").
     for key, value in data.items():
-        if key != 'id':  # ID не изменяется
-            setattr(lesson, key, value)
+        if key == 'id':
+            continue
+        if key == 'order':
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                return error_response('VALIDATION_ERROR', 'Поле order должно быть целым числом', 400)
+        setattr(lesson, key, value)
     
     db.session.commit()
     

@@ -211,8 +211,10 @@ def update_video(video_id: int) -> Tuple[Dict[str, Any], int]:
           properties:
             context_description:
               type: string
+              example: "Основной вариант жеста"
             order:
               type: integer
+              example: 0
     responses:
       200:
         description: Видео обновлено
@@ -225,7 +227,14 @@ def update_video(video_id: int) -> Tuple[Dict[str, Any], int]:
     if 'context_description' in data:
         video.context_description = data['context_description']
     if 'order' in data:
-        video.order = int(data['order'])
+        try:
+            video.order = int(data['order'])
+        except (TypeError, ValueError):
+            return error_response(
+                'VALIDATION_ERROR',
+                'Поле order должно быть целым числом',
+                400
+            )
     
     db.session.commit()
     

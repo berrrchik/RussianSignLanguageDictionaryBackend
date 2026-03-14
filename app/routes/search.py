@@ -117,8 +117,10 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
     if not isinstance(min_similarity, (int, float)) or min_similarity < 0.0 or min_similarity > 1.0:
         min_similarity = 0.0
     
-    # Путь к модели (опционально)
-    model_path = data.get('model_path', 'ai-forever/sbert_large_nlu_ru')
+    # Путь к модели (опционально). Swagger UI часто подставляет плейсхолдер "string".
+    model_path = data.get('model_path') or ''
+    if not model_path or (isinstance(model_path, str) and model_path.strip().lower() == 'string'):
+        model_path = 'ai-forever/sbert_large_nlu_ru'
     
     # Начинаем измерение времени
     start_time = time.time()
