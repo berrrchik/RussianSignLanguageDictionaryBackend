@@ -227,6 +227,31 @@
         </div>
     </div>
 
+    <!-- Модальное окно для редактирования описания видео -->
+    <div id="editVideoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Редактировать видео</h2>
+                <button class="modal-close" onclick="closeEditVideoModal()">&times;</button>
+            </div>
+            <form id="editVideoForm" onsubmit="saveVideoChanges(event)">
+                <div class="form-group">
+                    <label for="editVideoContextDescription">Описание контекста <span class="required">*</span></label>
+                    <textarea id="editVideoContextDescription" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editVideoOrder">Порядок</label>
+                    <input type="number" id="editVideoOrder" value="1" min="1">
+                </div>
+                <div id="editVideoFormError" class="error-message" style="display: none;"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditVideoModal()">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Модальное окно для поиска синонима -->
     <div id="synonymModal" class="modal">
         <div class="modal-content">

@@ -5,6 +5,8 @@ let currentPage = 1;
 let perPage = 50;
 let currentSignId = null;
 let searchTimeout = null;
+let currentVideos = [];
+let currentVideoId = null;
 
 // Проверка авторизации при загрузке
 window.addEventListener('load', async () => {
@@ -675,6 +677,7 @@ function renderVideos(videos) {
     }
     
     const sortedVideos = [...videos].sort((a, b) => (a.order || 0) - (b.order || 0));
+    currentVideos = sortedVideos;
     
     tbody.innerHTML = sortedVideos.map(video => `
         <tr>
@@ -683,7 +686,8 @@ function renderVideos(videos) {
             <td><a href="${video.url}" target="_blank">${video.url}</a></td>
             <td>
                 <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="viewVideo('${video.url}', '${video.context_description.replace(/'/g, "\\'")}')">Просмотреть</button>
-                <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="deleteVideo(${video.id})">Удалить</button>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.9rem; margin-left: 0.25rem;" onclick="openEditVideoModal(${video.id})">Редактировать</button>
+                <button class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.9rem; margin-left: 0.25rem;" onclick="deleteVideo(${video.id})">Удалить</button>
             </td>
         </tr>
     `).join('');
@@ -728,6 +732,25 @@ function openAddVideoModal() {
 
 function closeVideoModal() {
     document.getElementById('videoModal').classList.remove('show');
+}
+
+function openEditVideoModal(videoId) {
+    const video = currentVideos.find(v => v.id === videoId);
+    if (!video) {
+        showNotification('Видео не найдено', 'error');
+        return;
+    }
+    
+    currentVideoId = videoId;
+    document.getElementById('editVideoContextDescription').value = video.context_description || '';
+    document.getElementById('editVideoOrder').value = (video.order || 0) + 1;
+    document.getElementById('editVideoFormError').style.display = 'none';
+    document.getElementById('editVideoModal').classList.add('show');
+}
+
+function closeEditVideoModal() {
+    document.getElementById('editVideoModal').classList.remove('show');
+    currentVideoId = null;
 }
 
 async function uploadVideo(event) {
@@ -792,6 +815,58 @@ async function uploadVideo(event) {
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = 'Загрузить';
+    }
+}
+
+async function saveVideoChanges(event) {
+    event.preventDefault();
+    
+    if (!currentVideoId) {
+        showError('editVideoFormError', 'Видео не выбрано');
+        return;
+    }
+    
+    const descriptionInput = document.getElementById('editVideoContextDescription');
+    const orderInput = document.getElementById('editVideoOrder');
+    const description = descriptionInput.value.trim();
+    
+    if (!description) {
+        showError('editVideoFormError', 'Описание контекста обязательно');
+        return;
+    }
+    
+    const orderValue = parseInt(orderInput.value, 10) || 1;
+    const body = {
+        context_description: description,
+        order: Math.max(0, orderValue - 1)
+    };
+    
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="loading"></span> Сохранение...';
+    
+    try {
+        const response = await apiRequest(`/api/v1/admin/videos/${currentVideoId}`, {
+            method: 'PUT',
+            body: JSON.stringify(body)
+        });
+        
+        if (!response) return;
+        
+        const data = await response.json();
+        if (data.success) {
+            showNotification('Видео обновлено', 'success');
+            closeEditVideoModal();
+            await loadVideos(currentSignId);
+        } else {
+            showError('editVideoFormError', data.error?.message || 'Ошибка обновления видео');
+        }
+    } catch (error) {
+        console.error('Ошибка обновления видео:', error);
+        showError('editVideoFormError', 'Ошибка соединения с сервером');
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Сохранить';
     }
 }
 
