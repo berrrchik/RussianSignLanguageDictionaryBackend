@@ -14,7 +14,14 @@ window.addEventListener('load', async () => {
     // Важно: сначала загружаем категории, потом жесты
     // иначе в таблице жестов категории будут показаны как "Не указана"
     await loadCategories();
-    loadSigns();
+    await loadSigns();
+
+    // Если в URL передан sign_id, сразу открываем редактирование этого жеста
+    const urlParams = new URLSearchParams(window.location.search);
+    const signIdFromQuery = urlParams.get('sign_id');
+    if (signIdFromQuery) {
+        openEditSignModal(signIdFromQuery);
+    }
 });
 
 // Показать/скрыть индикатор загрузки (только в области таблицы)
