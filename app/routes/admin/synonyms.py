@@ -7,6 +7,7 @@ from flask import Blueprint, request
 from app.database import db
 from app.models.sign import Sign
 from app.models.sign_synonym import SignSynonym
+from app.constants import DEFAULT_PAGE, DEFAULT_PER_PAGE, MAX_PER_PAGE
 from app.utils.auth import require_auth
 from app.utils.sync import update_sync_metadata
 from app.utils.decorators import handle_db_errors, require_json
@@ -23,6 +24,111 @@ from app.utils.responses import (
 )
 
 bp = Blueprint('admin_synonyms', __name__)
+
+
+@bp.route('/synonyms', methods=['GET'])
+@require_auth
+@handle_db_errors('получения списка связей синонимов')
+def list_all_synonyms() -> Tuple[Dict[str, Any], int]:
+    """
+    Получение списка связей синонимов (глобально)
+    ---
+    tags:
+      - Синонимы
+    security:
+      - Bearer: []
+    parameters:
+      - name: page
+        in: query
+        type: integer
+        default: 1
+      - name: per_page
+        in: query
+        type: integer
+        default: 50
+      - name: search
+        in: query
+        type: string
+        required: false
+        description: Поиск по id/слову обоих жестов
+    responses:
+      200:
+        description: Список связей синонимов
+    """
+    page = request.args.get('page', DEFAULT_PAGE, type=int)
+    per_page = request.args.get('per_page', DEFAULT_PER_PAGE, type=int)
+    per_page = min(max(1, per_page), MAX_PER_PAGE)
+    search = (request.args.get('search', '') or '').strip()
+
+    # Загружаем все связи и сводим к уникальным парам (учитывая двусторонние записи)
+    relations = SignSynonym.query.order_by(SignSynonym.id.asc()).all()
+    unique_by_pair: Dict[tuple, SignSynonym] = {}
+    for rel in relations:
+        a, b = rel.sign_id_1, rel.sign_id_2
+        key = (a, b) if a <= b else (b, a)
+        if key not in unique_by_pair:
+            unique_by_pair[key] = rel
+
+    unique_relations = list(unique_by_pair.values())
+
+    # Подтягиваем слова жестов одним запросом
+    sign_ids = set()
+    for rel in unique_relations:
+        sign_ids.add(rel.sign_id_1)
+        sign_ids.add(rel.sign_id_2)
+    signs = Sign.query.filter(Sign.id.in_(list(sign_ids))).all() if sign_ids else []
+    sign_word_by_id = {s.id: s.word for s in signs}
+
+    # Формируем DTO
+    items = []
+    for rel in unique_relations:
+        sign_1_id = rel.sign_id_1
+        sign_2_id = rel.sign_id_2
+        items.append({
+            "id": rel.id,
+            "sign_1_id": sign_1_id,
+            "sign_1_word": sign_word_by_id.get(sign_1_id),
+            "sign_2_id": sign_2_id,
+            "sign_2_word": sign_word_by_id.get(sign_2_id),
+            "created_at": rel.to_dict().get("created_at"),
+        })
+
+    # Поиск (по id или слову любого из жестов)
+    if search:
+        search_lower = search.lower()
+        def match(item: Dict[str, Any]) -> bool:
+            return (
+                (item.get("sign_1_id") or "").lower().find(search_lower) != -1 or
+                (item.get("sign_2_id") or "").lower().find(search_lower) != -1 or
+                (item.get("sign_1_word") or "").lower().find(search_lower) != -1 or
+                (item.get("sign_2_word") or "").lower().find(search_lower) != -1 or
+                str(item.get("id", "")).find(search) != -1
+            )
+        items = [it for it in items if match(it)]
+
+    # Стабильная сортировка: по словам, затем по id
+    items.sort(key=lambda x: (
+        (x.get("sign_1_word") or ""),
+        (x.get("sign_2_word") or ""),
+        x.get("id", 0),
+    ))
+
+    total = len(items)
+    pages = (total + per_page - 1) // per_page if total > 0 else 1
+    page = max(1, min(page, pages))
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated = items[start_idx:end_idx]
+
+    return success_response(data={
+        "synonyms": paginated,
+        "pagination": {
+            "page": page,
+            "per_page": per_page,
+            "total": total,
+            "pages": pages
+        }
+    })
 
 
 @bp.route('/signs/<sign_id>/synonyms', methods=['GET'])
