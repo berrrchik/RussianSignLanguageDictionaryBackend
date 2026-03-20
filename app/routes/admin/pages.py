@@ -30,6 +30,12 @@ def categories_page():
     return render_template('categories.html')
 
 
+@bp.route('/synonyms', methods=['GET'])
+def synonyms_page():
+    """Страница управления синонимами."""
+    return render_template('synonyms.html')
+
+
 @bp.route('/lessons', methods=['GET'])
 def lessons_page():
     """Страница управления уроками."""

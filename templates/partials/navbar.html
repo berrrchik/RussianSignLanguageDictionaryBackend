@@ -6,6 +6,7 @@
             <li><a href="/admin/dashboard" {% if request.path == '/admin/dashboard' %}class="active"{% endif %}>Главная</a></li>
             <li><a href="/admin/signs" {% if request.path == '/admin/signs' %}class="active"{% endif %}>Жесты</a></li>
             <li><a href="/admin/categories" {% if request.path == '/admin/categories' %}class="active"{% endif %}>Категории</a></li>
+            <li><a href="/admin/synonyms" {% if request.path == '/admin/synonyms' %}class="active"{% endif %}>Синонимы</a></li>
             <li><a href="/admin/lessons" {% if request.path == '/admin/lessons' %}class="active"{% endif %}>Уроки</a></li>
         </ul>
         <button class="btn-logout" onclick="logout()">Выйти</button>
