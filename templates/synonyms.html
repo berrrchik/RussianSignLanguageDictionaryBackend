@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Синонимы{% endblock %}
+
+{% block content %}
+    <div class="section">
+        <div class="section-header">
+            <h1>Синонимы</h1>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Поиск по слову или ID..." onkeyup="filterSynonyms()">
+        </div>
+
+        <div class="table-container">
+            <table id="synonymsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">ID связи</th>
+                        <th>Жест 1</th>
+                        <th>Жест 2</th>
+                        <th style="width: 180px;">Создано</th>
+                        <th style="width: 160px;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="synonymsTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem;">
+                            <div class="loading"></div> Загрузка...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="pagination" class="pagination"></div>
+    </div>
+{% endblock %}
+
+{% block modals %}
+    <!-- Модальное окно подтверждения удаления связи -->
+    <div id="deleteSynonymModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Подтверждение удаления</h2>
+                <button class="modal-close" onclick="closeDeleteSynonymModal()">&times;</button>
+            </div>
+            <div class="warning-box" style="margin: 1rem 0; padding: 1rem; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                <h3 style="color: #856404; margin-bottom: 0.5rem;">⚠️ Внимание!</h3>
+                <p style="color: #856404; margin-bottom: 0.5rem;">Это действие нельзя отменить. Связь синонимов будет удалена.</p>
+                <p style="color: #856404; font-weight: bold; margin-bottom: 0;">Связь: <span id="deleteSynonymPairDisplay" style="color: #000;"></span></p>
+            </div>
+            <div id="deleteSynonymError" class="error-message" style="display: none; margin-top: 0.5rem;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteSynonymModal()">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteSynonymButton" onclick="confirmDeleteSynonym()">Удалить</button>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url_for('static', filename='js/synonyms.js') }}"></script>
+{% endblock %}
+
