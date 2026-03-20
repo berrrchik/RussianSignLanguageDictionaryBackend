@@ -53,7 +53,7 @@ def list_videos(sign_id: str) -> Tuple[Dict[str, Any], int]:
     """
     Sign.query.get_or_404(sign_id)
     videos = SignVideo.query.filter_by(sign_id=sign_id).order_by(SignVideo.order).all()
-    return success_response(data=[video.to_dict() for video in videos])
+    return success_response(data=[video.to_dict_local() for video in videos])
 
 
 @bp.route('/signs/<sign_id>/videos', methods=['POST'])

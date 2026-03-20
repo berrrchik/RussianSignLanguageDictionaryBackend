@@ -36,6 +36,29 @@ class SignVideo(db.Model):
             'updated_at': format_datetime(self.updated_at),
         }
     
+    def to_dict_local(self):
+        """Преобразование в словарь для JSON с полным URL для локального хранилища."""
+        from flask import current_app
+        
+        context_desc = self.context_description
+        if not context_desc or (isinstance(context_desc, str) and context_desc.strip() == ''):
+            context_desc = f"Видео {self.order + 1}" if self.order > 0 else "Основное видео"
+        
+        # Строим полный URL: VIDEO_BASE_URL + file_path
+        video_base_url = current_app.config.get('VIDEO_BASE_URL', 'http://localhost:5001/videos')
+        # Убираем ведущий слэш из file_path, если есть, чтобы избежать двойного слэша
+        path = self.file_path.lstrip('/')
+        full_url = f"{video_base_url.rstrip('/')}/{path}"
+        
+        return {
+            'id': self.id,
+            'url': full_url,
+            'context_description': context_desc,
+            'order': self.order,
+            'created_at': format_datetime(self.created_at),
+            'updated_at': format_datetime(self.updated_at),
+        }
+    
     def __repr__(self):
         return f'<SignVideo {self.id}: {self.sign_id}>'
 

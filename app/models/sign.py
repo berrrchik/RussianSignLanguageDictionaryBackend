@@ -61,7 +61,7 @@ class Sign(db.Model):
             'word': self.word,
             'description': self.description,
             'category_id': self.category_id,
-            'videos': [video.to_dict() for video in self.videos],
+            'videos': [video.to_dict_local() for video in self.videos],
             'synonyms': synonyms,
             'created_at': format_datetime(self.created_at),
             'updated_at': format_datetime(self.updated_at),
