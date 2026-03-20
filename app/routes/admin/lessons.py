@@ -2,6 +2,7 @@
 Endpoints для управления уроками.
 """
 import os
+from pathlib import Path
 from typing import Tuple, Dict, Any
 from flask import Blueprint, request, current_app
 
@@ -21,6 +22,27 @@ from app.utils.logging_config import get_logger, log_business_event
 
 bp = Blueprint('admin_lessons', __name__)
 logger = get_logger(__name__)
+
+
+def _is_local_video_storage() -> bool:
+    """Проверяет, используется ли локальное хранилище видео."""
+    return os.getenv('VIDEO_STORAGE_TYPE', 'local').lower() == 'local'
+
+
+def _lesson_filename(lesson_id: str) -> str:
+    """Формирует имя файла урока: lesson-N.mp4."""
+    return lesson_id.replace('_', '-') + '.mp4'
+
+
+def _lesson_relative_path(lesson_id: str) -> str:
+    """Относительный путь к видео урока внутри VIDEO_STORAGE_PATH."""
+    return f"lessons/{_lesson_filename(lesson_id)}"
+
+
+def _lesson_absolute_path(lesson_id: str) -> Path:
+    """Абсолютный путь к видео урока на диске."""
+    base_path = Path(current_app.config['VIDEO_STORAGE_PATH'])
+    return base_path / _lesson_relative_path(lesson_id)
 
 
 @bp.route('/lessons', methods=['GET'])
@@ -263,40 +285,39 @@ def delete_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
         description: Урок не найден
     """
     lesson = Lesson.query.get_or_404(lesson_id)
-    
-    # Удаляем видео из Supabase Storage, если оно есть
+
+    # Удаляем связанный видеофайл, если он есть
     if lesson.video_url:
-        try:
-            # Получаем настройки Supabase из переменных окружения
-            supabase_url = os.getenv('SUPABASE_URL')
-            # Используем service role key для удаления (обходит RLS), если доступен, иначе anon key
-            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
-            bucket_name = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')
-            
-            if supabase_url and supabase_key:
-                # Импортируем Supabase клиент
-                try:
-                    from supabase import create_client, Client
-                    
-                    # Создаем клиент Supabase (URL должен быть без trailing slash)
-                    supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
-                    
-                    # Формируем имя файла: lesson-N.mp4 (с дефисом для Supabase)
-                    filename = lesson.id.replace('_', '-') + '.mp4'
-                    storage_path = filename  # В bucket lessons файлы хранятся прямо в корне
-                    
-                    # Удаляем файл из Supabase Storage
+        if _is_local_video_storage():
+            try:
+                file_path = _lesson_absolute_path(lesson.id)
+                if file_path.exists():
+                    file_path.unlink()
+                    current_app.logger.info(f"Видео урока удалено из локального хранилища: {file_path}")
+            except Exception as e:
+                current_app.logger.warning(f"Ошибка при удалении локального видео урока: {e}")
+                # Продолжаем удаление урока, даже если файл удалить не удалось
+        else:
+            try:
+                supabase_url = os.getenv('SUPABASE_URL')
+                supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
+                bucket_name = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')
+
+                if supabase_url and supabase_key:
                     try:
-                        supabase.storage.from_(bucket_name).remove([storage_path])
-                        current_app.logger.info(f"Видео {storage_path} удалено из Supabase Storage")
-                    except Exception as e:
-                        current_app.logger.warning(f"Не удалось удалить файл {storage_path} из Supabase: {e}")
-                        # Продолжаем удаление урока, даже если файл не найден в хранилище
-                except ImportError:
-                    current_app.logger.warning("Библиотека supabase не установлена, видео не удалено из Storage")
-        except Exception as e:
-            current_app.logger.warning(f"Ошибка при удалении видео из Supabase Storage: {e}")
-            # Продолжаем удаление урока, даже если не удалось удалить видео
+                        from supabase import create_client, Client
+                        supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
+                        storage_path = _lesson_filename(lesson.id)
+                        try:
+                            supabase.storage.from_(bucket_name).remove([storage_path])
+                            current_app.logger.info(f"Видео {storage_path} удалено из Supabase Storage")
+                        except Exception as e:
+                            current_app.logger.warning(f"Не удалось удалить файл {storage_path} из Supabase: {e}")
+                    except ImportError:
+                        current_app.logger.warning("Библиотека supabase не установлена, видео не удалено из Storage")
+            except Exception as e:
+                current_app.logger.warning(f"Ошибка при удалении видео из Supabase Storage: {e}")
+                # Продолжаем удаление урока, даже если удалить файл не удалось
     
     # Удаляем урок из базы данных
     db.session.delete(lesson)
@@ -343,50 +364,39 @@ def delete_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
         return error_response('NO_VIDEO', 'У урока нет видео для удаления', 400)
     
     try:
-        # Получаем настройки Supabase из переменных окружения
-        supabase_url = os.getenv('SUPABASE_URL')
-        # Используем service role key для удаления (обходит RLS), если доступен, иначе anon key
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
-        bucket_name = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')
-        
-        if not supabase_url or not supabase_key:
-            return error_response('CONFIG_ERROR', 'Настройки Supabase не найдены. Укажите SUPABASE_URL и SUPABASE_KEY (или SUPABASE_SERVICE_ROLE_KEY) в .env', 500)
-        
-        # Импортируем Supabase клиент
-        try:
-            from supabase import create_client, Client
-        except ImportError:
-            return error_response('DEPENDENCY_ERROR', 'Библиотека supabase не установлена. Установите: pip install supabase', 500)
-        
-        # Создаем клиент Supabase (URL должен быть без trailing slash)
-        supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
-        
-        if lesson.video_url.startswith('http://') or lesson.video_url.startswith('https://'):
-            try:
-                storage_path = lesson.video_url.split('/')[-1]
-            except Exception:
-                storage_path = lesson.id.replace('_', '-') + '.mp4'
-        elif lesson.video_url.startswith('lessons/'):
-            storage_path = lesson.video_url.replace('lessons/', '')
+        if _is_local_video_storage():
+            file_path = _lesson_absolute_path(lesson.id)
+            if file_path.exists():
+                file_path.unlink()
         else:
-            storage_path = lesson.id.replace('_', '-') + '.mp4'
-        
-        # Удаляем файл из Supabase Storage
-        try:
-            supabase.storage.from_(bucket_name).remove([storage_path])
-        except Exception as e:
-            current_app.logger.warning(f"Не удалось удалить файл {storage_path} из Supabase: {e}")
-            # Продолжаем, даже если файл не найден в хранилище
-        
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
+            bucket_name = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')
+
+            if not supabase_url or not supabase_key:
+                return error_response('CONFIG_ERROR', 'Настройки Supabase не найдены. Укажите SUPABASE_URL и SUPABASE_KEY (или SUPABASE_SERVICE_ROLE_KEY) в .env', 500)
+
+            try:
+                from supabase import create_client, Client
+            except ImportError:
+                return error_response('DEPENDENCY_ERROR', 'Библиотека supabase не установлена. Установите: pip install supabase', 500)
+
+            supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
+            storage_path = _lesson_filename(lesson.id)
+            try:
+                supabase.storage.from_(bucket_name).remove([storage_path])
+            except Exception as e:
+                current_app.logger.warning(f"Не удалось удалить файл {storage_path} из Supabase: {e}")
+
         # Обновляем video_url в базе данных (устанавливаем пустое значение)
         lesson.video_url = ''
         db.session.commit()
-        
+
         # Обновление метаданных синхронизации
         update_sync_metadata()
-        
+
         return success_response(message='Видео удалено успешно')
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Ошибка при удалении видео урока {lesson_id}: {e}")
@@ -439,54 +449,46 @@ def upload_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
         return error_response('FILE_TOO_LARGE', 'Размер файла не должен превышать 50MB', 400)
     
     try:
-        # Получаем настройки Supabase из переменных окружения
-        supabase_url = os.getenv('SUPABASE_URL')
-        # Используем service role key для загрузки (обходит RLS), если доступен, иначе anon key
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
-        bucket_name = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')
-        
-        if not supabase_url or not supabase_key:
-            return error_response('CONFIG_ERROR', 'Настройки Supabase не найдены. Укажите SUPABASE_URL и SUPABASE_KEY (или SUPABASE_SERVICE_ROLE_KEY) в .env', 500)
-        
-        # Импортируем Supabase клиент
-        try:
-            from supabase import create_client, Client
-        except ImportError:
-            return error_response('DEPENDENCY_ERROR', 'Библиотека supabase не установлена. Установите: pip install supabase', 500)
-        
-        # Создаем клиент Supabase (URL должен быть без trailing slash)
-        supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
-        
-        # Формируем имя файла: lesson-N.mp4 (с дефисом для Supabase)
-        filename = lesson.id.replace('_', '-') + '.mp4'
-        storage_path = filename  # В bucket lessons файлы хранятся прямо в корне
-        
-        # Читаем файл
-        file.seek(0)
-        file_data = file.read()
-        
-        # Загружаем в Supabase Storage
-        supabase.storage.from_(bucket_name).upload(
-            path=storage_path,
-            file=file_data,
-            file_options={"content-type": "video/mp4", "upsert": "true"}
-        )
-        
-        # Получаем публичный URL (полный URL)
-        public_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
-        
-        # Сохраняем полный URL в базу данных
-        video_url = public_url
-        
+        filename = _lesson_filename(lesson.id)
+
+        if _is_local_video_storage():
+            full_path = _lesson_absolute_path(lesson.id)
+            full_path.parent.mkdir(parents=True, exist_ok=True)
+            file.save(str(full_path))
+            video_url = f"/lessons/{filename}"
+        else:
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
+            bucket_name = os.getenv('SUPABASE_LESSONS_BUCKET', 'lessons')
+
+            if not supabase_url or not supabase_key:
+                return error_response('CONFIG_ERROR', 'Настройки Supabase не найдены. Укажите SUPABASE_URL и SUPABASE_KEY (или SUPABASE_SERVICE_ROLE_KEY) в .env', 500)
+
+            try:
+                from supabase import create_client, Client
+            except ImportError:
+                return error_response('DEPENDENCY_ERROR', 'Библиотека supabase не установлена. Установите: pip install supabase', 500)
+
+            supabase: Client = create_client(supabase_url.rstrip('/'), supabase_key)
+            storage_path = filename
+            file.seek(0)
+            file_data = file.read()
+            supabase.storage.from_(bucket_name).upload(
+                path=storage_path,
+                file=file_data,
+                file_options={"content-type": "video/mp4", "upsert": "true"}
+            )
+            video_url = supabase.storage.from_(bucket_name).get_public_url(storage_path)
+
         # Обновляем video_url в уроке
         lesson.video_url = video_url
         db.session.commit()
-        
+
         # Обновление метаданных синхронизации
         update_sync_metadata()
-        
+
         return success_response(data={'video_url': video_url}, message='Видео загружено успешно')
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Ошибка загрузки видео урока: {str(e)}')
