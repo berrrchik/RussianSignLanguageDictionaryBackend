@@ -71,25 +71,60 @@ class LocalVideoStorage(VideoStorage):
         
         # Создание директории если не существует
         self.storage_path.mkdir(parents=True, exist_ok=True)
+
+    def _resolve_local_path(self, file_path: str) -> Path:
+        """
+        Преобразует путь из БД в абсолютный путь на диске.
+
+        Поддерживает:
+        - относительные пути: signs/category/file.mp4
+        - абсолютные пути: /opt/sign-language-backend/videos/signs/category/file.mp4
+        """
+        candidate = Path(file_path)
+        if candidate.is_absolute():
+            return candidate
+        return self.storage_path / file_path.lstrip("/")
+
+    def _normalize_relative_path(self, file_path: str) -> str:
+        """
+        Преобразует путь из БД в относительный путь для URL.
+        """
+        candidate = Path(file_path)
+        if candidate.is_absolute():
+            try:
+                candidate = candidate.relative_to(self.storage_path)
+            except ValueError:
+                # На случай "чужого" абсолютного пути не ломаем выдачу URL
+                candidate = Path(candidate.name)
+        return str(candidate).lstrip("/")
     
     def upload(self, file, sign_id: str, filename: str, category_id: Optional[str] = None) -> Tuple[str, str]:
         """Загружает файл в локальное хранилище."""
         # Безопасное имя файла с префиксом sign_id
         safe_filename = secure_filename(filename)
         safe_filename = f"{sign_id}_{safe_filename}"
-        
-        file_path = self.storage_path / safe_filename
+
+        # Сохраняем структуру по категориям, как в существующих данных: signs/<category>/<file>
+        if category_id:
+            safe_category = secure_filename(category_id)
+            relative_path = f"signs/{safe_category}/{safe_filename}"
+        else:
+            relative_path = f"signs/{safe_filename}"
+
+        file_path = self.storage_path / relative_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
         file.save(str(file_path))
         
         # Генерация URL
-        url = f"{self.base_url}/{safe_filename}"
+        url = f"{self.base_url}/{relative_path}"
         
-        return (str(file_path), url)
+        # В БД храним относительный путь для переносимости между серверами
+        return (relative_path, url)
     
     def delete(self, file_path: str) -> bool:
         """Удаляет файл из локального хранилища."""
         try:
-            path = Path(file_path)
+            path = self._resolve_local_path(file_path)
             if path.exists():
                 path.unlink()
                 return True
@@ -99,8 +134,8 @@ class LocalVideoStorage(VideoStorage):
     
     def get_url(self, file_path: str) -> str:
         """Получает публичный URL для локального файла."""
-        filename = Path(file_path).name
-        return f"{self.base_url}/{filename}"
+        relative_path = self._normalize_relative_path(file_path)
+        return f"{self.base_url}/{relative_path}"
 
 
 class SupabaseVideoStorage(VideoStorage):
