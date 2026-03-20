@@ -134,6 +134,131 @@
             </div>
         </div>
     </div>
+
+    <!-- Модальное окно "Детали категории" -->
+    <div id="categoryDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 id="categoryDetailsTitle">Детали категории</h2>
+                <button class="modal-close" onclick="closeCategoryDetailsModal()">&times;</button>
+            </div>
+
+            <div class="section" style="margin-bottom: 1rem;">
+                <h3 style="margin-top: 0;">Информация</h3>
+                <div style="display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem;">
+                    <div><strong>ID</strong></div>
+                    <div><code id="categoryDetailsId"></code></div>
+
+                    <div><strong>Название</strong></div>
+                    <div id="categoryDetailsName"></div>
+
+                    <div><strong>Порядок</strong></div>
+                    <div id="categoryDetailsOrder"></div>
+
+                    <div><strong>Жестов</strong></div>
+                    <div id="categoryDetailsSignsCount"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-header">
+                    <h3 style="margin: 0;">Жесты в категории</h3>
+                    <div style="margin-left: auto;">
+                        <button class="btn btn-primary" id="categoryDetailsEditButton" onclick="openEditCategoryModalFromDetails()">Редактировать</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Слово</th>
+                                <th>Описание</th>
+                                <th style="width: 160px;">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryDetailsSignsBody">
+                            <tr><td colspan="4" style="text-align: center; padding: 1rem;">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="categoryDetailsError" class="error-message" style="display: none; margin-top: 1rem;"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCategoryDetailsModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно "Детали жеста" (поверх деталей категории) -->
+    <div id="signDetailsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2 id="signDetailsTitle">Детали жеста</h2>
+                <button class="modal-close" onclick="closeSignDetailsModal()">&times;</button>
+            </div>
+
+            <div class="section" style="margin-bottom: 1rem;">
+                <h3 style="margin-top: 0;">Информация</h3>
+                <div style="display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem;">
+                    <div><strong>ID</strong></div>
+                    <div><code id="signDetailsId"></code></div>
+
+                    <div><strong>Слово</strong></div>
+                    <div id="signDetailsWord"></div>
+
+                    <div><strong>Описание</strong></div>
+                    <div id="signDetailsDescription"></div>
+
+                    <div><strong>Категория</strong></div>
+                    <div><code id="signDetailsCategory"></code></div>
+                </div>
+            </div>
+
+            <div class="section" style="margin-bottom: 1rem;">
+                <h3 style="margin-top: 0;">Видео</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">Порядок</th>
+                                <th>Описание контекста</th>
+                                <th>URL</th>
+                                <th style="width: 130px;">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="signDetailsVideosBody">
+                            <tr><td colspan="4" style="text-align: center; padding: 1rem;">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3 style="margin-top: 0;">Синонимы</h3>
+                <div id="signDetailsSynonyms" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+            </div>
+
+            <div id="signDetailsError" class="error-message" style="display: none; margin-top: 1rem;"></div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between;">
+                <a id="signDetailsOpenInSignsLink" href="/admin/signs" class="btn btn-secondary" target="_blank" style="text-decoration: none;">Открыть в "Жесты"</a>
+                <button type="button" class="btn btn-primary" onclick="closeSignDetailsModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для просмотра видео (без переадресации) -->
+    <div id="viewSignVideoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Просмотр видео</h2>
+                <button class="modal-close" onclick="closeViewSignVideoModal()">&times;</button>
+            </div>
+            <video id="viewSignVideoPlayer" class="video-preview" controls></video>
+            <p id="viewSignVideoDescription" style="margin-top: 1rem;"></p>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}

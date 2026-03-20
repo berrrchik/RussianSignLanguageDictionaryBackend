@@ -3,6 +3,8 @@ let allCategories = [];
 let categorySignsCounts = {};
 let currentDeleteCategoryId = null;
 let currentDeleteCategorySigns = [];
+let currentDetailsCategoryId = null;
+let currentSignDetailsId = null;
 
 // Проверка авторизации при загрузке
 window.addEventListener('load', () => {
@@ -67,11 +69,211 @@ function renderCategories() {
                 <td>${category.order}</td>
                 <td>${signsCount}</td>
                 <td style="white-space: nowrap;">
+                    <button class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 1rem; display: inline-block; margin-right: 0.5rem;" onclick="openCategoryDetailsModal('${category.id}')">Детали</button>
                     <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 1rem; display: inline-block;" onclick="openEditCategoryModal('${category.id}')">Редактировать</button>
                 </td>
             </tr>
         `;
     }).join('');
+}
+
+// "Детали категории"
+async function openCategoryDetailsModal(categoryId) {
+    currentDetailsCategoryId = categoryId;
+    hideError('categoryDetailsError');
+    document.getElementById('categoryDetailsTitle').textContent = 'Детали категории';
+    document.getElementById('categoryDetailsId').textContent = '';
+    document.getElementById('categoryDetailsName').textContent = '';
+    document.getElementById('categoryDetailsOrder').textContent = '';
+    document.getElementById('categoryDetailsSignsCount').textContent = '';
+    document.getElementById('categoryDetailsSignsBody').innerHTML =
+        '<tr><td colspan="4" style="text-align: center; padding: 1rem;">Загрузка...</td></tr>';
+    document.getElementById('categoryDetailsModal').classList.add('show');
+
+    try {
+        const [categoryResp, signsResp] = await Promise.all([
+            apiRequest(`/api/v1/admin/categories/${categoryId}`),
+            apiRequest(`/api/v1/admin/categories/${categoryId}/signs`)
+        ]);
+
+        if (!categoryResp || !signsResp) return;
+
+        const categoryData = await categoryResp.json();
+        const signsData = await signsResp.json();
+
+        if (!categoryData.success) {
+            showError('categoryDetailsError', categoryData.error?.message || 'Ошибка загрузки категории');
+            return;
+        }
+
+        const category = categoryData.data;
+        const signs = (signsData.success ? signsData.data : []) || [];
+
+        document.getElementById('categoryDetailsTitle').textContent = `Детали: ${category.name}`;
+        document.getElementById('categoryDetailsId').textContent = category.id;
+        document.getElementById('categoryDetailsName').textContent = category.name;
+        document.getElementById('categoryDetailsOrder').textContent = category.order;
+        document.getElementById('categoryDetailsSignsCount').textContent =
+            `${signs.length} (в таблице категорий: ${categorySignsCounts[categoryId] || 0})`;
+
+        renderCategoryDetailsSigns(signs);
+    } catch (error) {
+        console.error('Ошибка загрузки деталей категории:', error);
+        showError('categoryDetailsError', 'Ошибка соединения с сервером');
+    }
+}
+
+function renderCategoryDetailsSigns(signs) {
+    const tbody = document.getElementById('categoryDetailsSignsBody');
+    if (!tbody) return;
+
+    if (!signs || signs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem;">Жесты не найдены</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = signs.map(sign => {
+        const safeId = (sign.id || '').replace(/'/g, "\\'");
+        return `
+            <tr>
+                <td>${escapeHtml(sign.id || '')}</td>
+                <td>${escapeHtml(sign.word || '')}</td>
+                <td>${escapeHtml(sign.description || '')}</td>
+                <td style="white-space: nowrap;">
+                    <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="openSignDetailsModal('${safeId}')">Открыть жест</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// "Детали жеста" поверх модалки категории
+async function openSignDetailsModal(signId) {
+    if (!signId) return;
+    currentSignDetailsId = signId;
+    hideError('signDetailsError');
+
+    document.getElementById('signDetailsTitle').textContent = 'Детали жеста';
+    document.getElementById('signDetailsId').textContent = '';
+    document.getElementById('signDetailsWord').textContent = '';
+    document.getElementById('signDetailsDescription').textContent = '';
+    document.getElementById('signDetailsCategory').textContent = '';
+    document.getElementById('signDetailsSynonyms').innerHTML = '';
+    document.getElementById('signDetailsVideosBody').innerHTML =
+        '<tr><td colspan="3" style="text-align: center; padding: 1rem;">Загрузка...</td></tr>';
+
+    const openInSignsLink = document.getElementById('signDetailsOpenInSignsLink');
+    openInSignsLink.href = `/admin/signs?sign_id=${encodeURIComponent(signId)}`;
+
+    // Показываем поверх деталей категории: просто открываем вторую модалку
+    document.getElementById('signDetailsModal').classList.add('show');
+
+    try {
+        const response = await apiRequest(`/api/v1/admin/signs/${encodeURIComponent(signId)}`);
+        if (!response) return;
+
+        const data = await response.json();
+        if (!data.success) {
+            showError('signDetailsError', data.error?.message || 'Ошибка загрузки жеста');
+            return;
+        }
+
+        const sign = data.data || {};
+        document.getElementById('signDetailsTitle').textContent = `Детали: ${sign.word || sign.id || ''}`;
+        document.getElementById('signDetailsId').textContent = sign.id || '';
+        document.getElementById('signDetailsWord').textContent = sign.word || '';
+        document.getElementById('signDetailsDescription').textContent = sign.description || '';
+        document.getElementById('signDetailsCategory').textContent = sign.category_id || '';
+
+        renderSignDetailsVideos(sign.videos || []);
+        renderSignDetailsSynonyms(sign.synonyms || []);
+    } catch (error) {
+        console.error('Ошибка загрузки деталей жеста:', error);
+        showError('signDetailsError', 'Ошибка соединения с сервером');
+    }
+}
+
+function renderSignDetailsVideos(videos) {
+    const tbody = document.getElementById('signDetailsVideosBody');
+    if (!tbody) return;
+
+    if (!videos || videos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 1rem;">Видео не найдены</td></tr>';
+        return;
+    }
+
+    const sorted = [...videos].sort((a, b) => (a.order || 0) - (b.order || 0));
+    tbody.innerHTML = sorted.map(v => {
+        const url = v.url || '';
+        const safeUrl = String(url).replace(/'/g, "\\'");
+        const safeDesc = String(v.context_description || '').replace(/'/g, "\\'");
+        return `
+            <tr>
+                <td>${(v.order || 0) + 1}</td>
+                <td>${escapeHtml(v.context_description || '')}</td>
+                <td><a href="${escapeHtml(url)}" target="_blank">${escapeHtml(url)}</a></td>
+                <td style="white-space: nowrap;">
+                    <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.9rem;" onclick="viewSignVideo('${safeUrl}', '${safeDesc}')">Просмотреть</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderSignDetailsSynonyms(synonyms) {
+    const container = document.getElementById('signDetailsSynonyms');
+    if (!container) return;
+
+    if (!synonyms || synonyms.length === 0) {
+        container.innerHTML = '<span style="color:#666;">Синонимы не найдены</span>';
+        return;
+    }
+
+    container.innerHTML = synonyms.map(s => `
+        <span style="display:inline-flex; align-items:center; gap:0.25rem; padding:0.25rem 0.5rem; border:1px solid #ddd; border-radius:999px; background:#f9f9f9;">
+            <strong>${escapeHtml(s.word || '')}</strong>
+            <code style="font-size:0.85rem;">${escapeHtml(s.id || '')}</code>
+        </span>
+    `).join('');
+}
+
+function closeSignDetailsModal() {
+    document.getElementById('signDetailsModal').classList.remove('show');
+    currentSignDetailsId = null;
+    hideError('signDetailsError');
+}
+
+function viewSignVideo(url, description) {
+    const player = document.getElementById('viewSignVideoPlayer');
+    const desc = document.getElementById('viewSignVideoDescription');
+    if (!player || !desc) return;
+
+    player.src = url;
+    desc.textContent = description || '';
+    document.getElementById('viewSignVideoModal').classList.add('show');
+}
+
+function closeViewSignVideoModal() {
+    const modal = document.getElementById('viewSignVideoModal');
+    const player = document.getElementById('viewSignVideoPlayer');
+    if (modal) modal.classList.remove('show');
+    if (player) {
+        player.pause();
+        player.src = '';
+    }
+    const desc = document.getElementById('viewSignVideoDescription');
+    if (desc) desc.textContent = '';
+}
+
+function openEditCategoryModalFromDetails() {
+    if (!currentDetailsCategoryId) return;
+    closeCategoryDetailsModal();
+    openEditCategoryModal(currentDetailsCategoryId);
+}
+
+function closeCategoryDetailsModal() {
+    document.getElementById('categoryDetailsModal').classList.remove('show');
+    currentDetailsCategoryId = null;
 }
 
 // Модальное окно создания категории
@@ -535,7 +737,7 @@ async function confirmDeleteCategoryFinal() {
 
 // Закрытие модальных окон при клике вне их
 window.addEventListener('click', (event) => {
-    const modals = ['categoryModal', 'deleteCategoryModal', 'deleteCategoryConfirmModal'];
+    const modals = ['categoryModal', 'deleteCategoryModal', 'deleteCategoryConfirmModal', 'categoryDetailsModal', 'signDetailsModal', 'viewSignVideoModal'];
     modals.forEach(modalId => {
         const modal = document.getElementById(modalId);
         if (event.target === modal) {
