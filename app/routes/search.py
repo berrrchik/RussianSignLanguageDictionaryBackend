@@ -162,14 +162,14 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
                 "avg_similarity": avg_sim,
                 "duration_ms": duration * 1000,
                 "model": model_path
-            })
+            }, event_domain="search", event_name="semantic_search", resource="search", action="query", outcome="success")
         else:
             search_empty_results.inc()
             log_business_event(logger, "Semantic search - no results", {
                 "query": text,
                 "duration_ms": duration * 1000,
                 "model": model_path
-            })
+            }, event_domain="search", event_name="semantic_search", resource="search", action="query", outcome="empty")
         
         return success_response(data={
             'query': text,
