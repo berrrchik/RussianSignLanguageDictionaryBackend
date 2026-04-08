@@ -135,7 +135,7 @@ def create_category() -> Tuple[Dict[str, Any], int]:
     log_business_event(logger, "Category created", {
         "category_id": category.id,
         "name": category.name
-    })
+    }, event_domain="admin_content", event_name="category_created", resource="category", action="create", outcome="success")
     
     return success_response(data=category.to_dict(), status_code=201)
 
@@ -198,7 +198,7 @@ def update_category(category_id: str) -> Tuple[Dict[str, Any], int]:
     
     log_business_event(logger, "Category updated", {
         "category_id": category_id
-    })
+    }, event_domain="admin_content", event_name="category_updated", resource="category", action="update", outcome="success")
     
     return success_response(data=category.to_dict())
 
@@ -249,7 +249,7 @@ def delete_category(category_id: str) -> Tuple[Dict[str, Any], int]:
     
     log_business_event(logger, "Category deleted", {
         "category_id": category_id
-    })
+    }, event_domain="admin_content", event_name="category_deleted", resource="category", action="delete", outcome="success")
     
     return success_response(message='Категория удалена')
 

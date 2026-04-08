@@ -209,7 +209,7 @@ def create_sign() -> Tuple[Dict[str, Any], int]:
         "sign_id": sign.id,
         "word": sign.word,
         "category_id": sign.category_id
-    })
+    }, event_domain="admin_content", event_name="sign_created", resource="sign", action="create", outcome="success")
     
     return success_response(data=sign.to_dict(), status_code=201)
 
@@ -281,7 +281,7 @@ def update_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     
     log_business_event(logger, "Sign updated", {
         "sign_id": sign_id
-    })
+    }, event_domain="admin_content", event_name="sign_updated", resource="sign", action="update", outcome="success")
     
     return success_response(data=sign.to_dict())
 
@@ -333,8 +333,7 @@ def delete_sign(sign_id: str) -> Tuple[Dict[str, Any], int]:
     
     log_business_event(logger, "Sign deleted", {
         "sign_id": sign_id
-    })
+    }, event_domain="admin_content", event_name="sign_deleted", resource="sign", action="delete", outcome="success")
     
     return success_response(message='Жест удалён')
-
 
