@@ -1,27 +1,24 @@
-# Автоматическая настройка источников данных Grafana
-# Автор: Berchik Anastasia Sergeevna
-
 apiVersion: 1
 
 datasources:
-  # Loki - основной источник для логов
   - name: Loki
+    uid: loki-sign-language
     type: loki
     access: proxy
-    url: http://loki:3100
+    url: http://127.0.0.1:3100
     isDefault: true
     editable: false
     jsonData:
       maxLines: 1000
       timeout: 60
 
-  # Prometheus - источник для метрик
   - name: Prometheus
+    uid: prometheus-sign-language
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://127.0.0.1:9090
     isDefault: false
     editable: false
     jsonData:
-      timeInterval: "15s"
-      queryTimeout: "60s"
+      timeInterval: 15s
+      queryTimeout: 60s

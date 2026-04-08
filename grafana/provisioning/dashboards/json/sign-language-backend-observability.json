@@ -1,0 +1,560 @@
+{
+  "id": null,
+  "uid": "sign-language-backend-observability",
+  "title": "Sign Language Backend Observability",
+  "tags": ["sign-language", "logs", "loki", "systemd"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "liveNow": false,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Application And Gunicorn Log Stream",
+      "description": "Основной поток логов backend: JSON application.log плюс gunicorn error.log.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "{service=\"sign-language-backend\", log_type=~\"application|gunicorn_error\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "id": 2,
+      "title": "Warnings And Errors",
+      "description": "Предупреждения и ошибки приложения. Подходит для поиска регрессий и неуспешных запросов.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "{service=\"sign-language-backend\", log_type=\"application\", level=~\"WARNING|ERROR|CRITICAL\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "id": 3,
+      "title": "Logs By Level",
+      "description": "Скорость поступления логов по уровням.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "targets": [
+        {
+          "expr": "sum by (level) (rate({service=\"sign-language-backend\", log_type=\"application\", level=~\"INFO|WARNING|ERROR|CRITICAL\"}[5m]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Request Status Families",
+      "description": "Запросы backend по семействам HTTP статусов на основе application.log.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 18
+      },
+      "targets": [
+        {
+          "expr": "sum by (status_family) (rate({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\"}[5m]))",
+          "legendFormat": "{{status_family}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "HTTP Methods",
+      "description": "Распределение запросов по HTTP-методам за выбранный диапазон.",
+      "type": "piechart",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 18
+      },
+      "targets": [
+        {
+          "expr": "sum by (method) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", method!=\"\"}[$__range]))",
+          "legendFormat": "{{method}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "displayLabels": ["name", "percent", "value"],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Top Routes",
+      "description": "Самые нагруженные маршруты по шаблонам Flask route, а не по сырым path.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 18
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (route) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", route!=\"\"}[$__range])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 7,
+      "title": "Slow Routes Over 500ms",
+      "description": "Маршруты, где чаще всего встречаются медленные запросы.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 26
+      },
+      "targets": [
+        {
+          "expr": "topk(10, sum by (route) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", route!=\"\"} | json | duration_ms > 500 [$__range])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 8,
+      "title": "Semantic Search Outcomes",
+      "description": "Трафик семантического поиска: успешные запросы и пустые результаты.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 26
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate({service=\"sign-language-backend\", log_type=\"application\", event_name=\"semantic_search\"}[5m]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Semantic Search P95 Duration",
+      "description": "P95 длительности SBERT-поиска из бизнес-событий search.",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 26
+      },
+      "targets": [
+        {
+          "expr": "max(quantile_over_time(0.95, {service=\"sign-language-backend\", log_type=\"application\", event_name=\"semantic_search\"} | json | unwrap duration_ms [$__range]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 300
+              },
+              {
+                "color": "red",
+                "value": 800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Mobile Sync Activity",
+      "description": "События sync check и full sync для мобильных клиентов.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 34
+      },
+      "targets": [
+        {
+          "expr": "sum by (event_name) (rate({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"business\", event_domain=\"sync\"}[15m]))",
+          "legendFormat": "{{event_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Admin Login Outcomes",
+      "description": "Успешные и неуспешные входы в административную часть.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 34
+      },
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate({service=\"sign-language-backend\", log_type=\"application\", event_name=\"admin_login\"}[15m]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "Content Mutations",
+      "description": "Create/update/delete/upload события по signs, categories, lessons и videos за выбранный диапазон.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 34
+      },
+      "targets": [
+        {
+          "expr": "sum by (resource, action) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_domain=\"admin_content\", action=~\"create|update|delete|upload\"}[$__range]))",
+          "legendFormat": "{{resource}} {{action}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      }
+    }
+  ],
+  "style": "dark",
+  "templating": {
+    "list": []
+  },
+  "timepicker": {},
+  "weekStart": ""
+}
