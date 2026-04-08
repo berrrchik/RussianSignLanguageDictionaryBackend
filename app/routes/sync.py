@@ -186,6 +186,11 @@ def check_updates_raw() -> Tuple[Dict[str, Any], int]:
             else None,
             "client_timestamp": client_timestamp_str,
         },
+        event_domain="sync",
+        event_name="sync_check",
+        resource="sync",
+        action="check",
+        outcome="success",
     )
 
     data = response.model_dump()
@@ -339,6 +344,11 @@ def get_all_data_raw() -> Tuple[Dict[str, Any], int]:
             "signs_count": len(signs_response),
             "lessons_count": len(lessons_response),
         },
+        event_domain="sync",
+        event_name="full_sync",
+        resource="sync",
+        action="download",
+        outcome="success",
     )
 
     # Создаем словарь данных для генерации ETag (точно как в ответе)
