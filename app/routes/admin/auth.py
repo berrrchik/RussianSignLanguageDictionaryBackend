@@ -99,7 +99,7 @@ def login() -> Tuple[Dict[str, Any], int]:
         log_business_event(logger, "Admin login successful", {
             "username": username,
             "ip_address": request.remote_addr
-        })
+        }, event_domain="admin_auth", event_name="admin_login", resource="admin_session", action="login", outcome="success")
         
         return success_response(
             data={
@@ -114,6 +114,6 @@ def login() -> Tuple[Dict[str, Any], int]:
     log_business_event(logger, "Admin login failed", {
         "username": username,
         "ip_address": request.remote_addr
-    })
+    }, event_domain="admin_auth", event_name="admin_login", resource="admin_session", action="login", outcome="failure")
     
     return error_response('INVALID_CREDENTIALS', 'Неверный username или password', 401)
