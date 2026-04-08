@@ -41,7 +41,17 @@ def handle_db_errors(operation_name: Optional[str] = None):
             except Exception as e:
                 db.session.rollback()
                 op_name = operation_name or f.__name__
-                current_app.logger.error(f"Ошибка {op_name}: {e}")
+                current_app.logger.error(
+                    f"Ошибка {op_name}: {e}",
+                    exc_info=True,
+                    extra={
+                        "event_kind": "application",
+                        "event_domain": "application",
+                        "event_name": "database_operation_failed",
+                        "outcome": "failure",
+                        "extra_data": {"operation": op_name},
+                    },
+                )
                 return internal_error_response(f'Ошибка {op_name}')
         return decorated_function
     return decorator
@@ -68,4 +78,3 @@ def require_json(f: Callable) -> Callable:
             return error_response('INVALID_REQUEST', 'Требуется JSON тело запроса', 400)
         return f(*args, **kwargs)
     return decorated_function
-

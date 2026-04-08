@@ -5,7 +5,7 @@ from typing import Callable, Any
 import jwt
 from functools import wraps
 from datetime import datetime, timedelta
-from flask import request, jsonify, current_app
+from flask import current_app, g, request
 from app.models.admin_user import AdminUser
 from app.utils.responses import error_response
 
@@ -85,8 +85,10 @@ def require_auth(f: Callable) -> Callable:
             if not user:
                 return error_response('USER_NOT_FOUND', 'Пользователь не найден', 401)
             
-            # Добавление пользователя в контекст запроса
+            # Добавление пользователя в контекст запроса и логи
             request.current_user = user
+            g.user_id = user.id
+            g.username = user.username
             
         except jwt.ExpiredSignatureError:
             return error_response('TOKEN_EXPIRED', 'Токен истёк', 401)
@@ -96,4 +98,3 @@ def require_auth(f: Callable) -> Callable:
         return f(*args, **kwargs)
     
     return decorated_function
-

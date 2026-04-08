@@ -54,7 +54,16 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_error(error):
         """Обработка внутренних ошибок (500)."""
-        app.logger.error(f'Внутренняя ошибка: {error}')
+        app.logger.error(
+            f'Внутренняя ошибка: {error}',
+            exc_info=True,
+            extra={
+                'event_kind': 'application',
+                'event_domain': 'application',
+                'event_name': 'internal_server_error',
+                'outcome': 'failure',
+            },
+        )
         return jsonify({
             'success': False,
             'error': {
@@ -73,4 +82,3 @@ def register_error_handlers(app):
                 'message': str(error)
             }
         }), 400
-
