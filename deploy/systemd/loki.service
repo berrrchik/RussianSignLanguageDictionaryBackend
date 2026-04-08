@@ -1,0 +1,20 @@
+[Unit]
+Description=Loki Log Aggregation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=berchik
+Group=berchik
+WorkingDirectory=/opt/monitoring/loki
+ExecStart=/opt/monitoring/loki/loki -config.file=/opt/monitoring/loki/loki-config.yml
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=loki
+
+[Install]
+WantedBy=multi-user.target

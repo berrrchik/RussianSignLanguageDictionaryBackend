@@ -1,6 +1,3 @@
-# Конфигурация Loki для сбора системных журналов
-# Автор: Berchik Anastasia Sergeevna
-
 auth_enabled: false
 
 server:
@@ -9,21 +6,19 @@ server:
 
 common:
   instance_addr: 127.0.0.1
-  path_prefix: /loki
+  path_prefix: /opt/monitoring/loki
   storage:
     filesystem:
-      chunks_directory: /loki/chunks
-      rules_directory: /loki/rules
+      chunks_directory: /opt/monitoring/loki/chunks
+      rules_directory: /opt/monitoring/loki/rules
   replication_factor: 1
   ring:
     kvstore:
       store: inmemory
 
-# Конфигурация индексации данных
-# Loki использует индексы для быстрого поиска по меткам (labels)
 schema_config:
   configs:
-    - from: 2020-10-24
+    - from: 2024-01-01
       store: tsdb
       object_store: filesystem
       schema: v13
@@ -31,25 +26,32 @@ schema_config:
         prefix: index_
         period: 24h
 
-# Настройки хранилища
 storage_config:
   tsdb_shipper:
-    active_index_directory: /loki/tsdb-index
-    cache_location: /loki/tsdb-cache
+    active_index_directory: /opt/monitoring/loki/tsdb-index
+    cache_location: /opt/monitoring/loki/tsdb-cache
 
-# Ограничения и лимиты
 limits_config:
+  retention_period: 168h
   reject_old_samples: true
-  reject_old_samples_max_age: 168h  # 7 дней
+  reject_old_samples_max_age: 168h
   ingestion_rate_mb: 16
   ingestion_burst_size_mb: 32
-  max_streams_per_user: 10000
   max_entries_limit_per_query: 5000
 
-# Конфигурация компактора для оптимизации хранения
-compactor:
-  working_directory: /loki/compactor
+query_range:
+  align_queries_with_step: true
+  cache_results: true
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
 
-# Аналитика (отключена)
+compactor:
+  working_directory: /opt/monitoring/loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+
 analytics:
   reporting_enabled: false

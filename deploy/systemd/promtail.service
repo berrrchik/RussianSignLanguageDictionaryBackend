@@ -1,0 +1,21 @@
+[Unit]
+Description=Promtail Log Shipper
+After=network-online.target loki.service sign-language-backend.service
+Wants=network-online.target
+Requires=loki.service
+
+[Service]
+Type=simple
+User=berchik
+Group=berchik
+SupplementaryGroups=appuser
+WorkingDirectory=/opt/monitoring
+ExecStart=/opt/monitoring/promtail -config.file=/opt/monitoring/promtail-config.yml
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=promtail
+
+[Install]
+WantedBy=multi-user.target
