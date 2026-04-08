@@ -175,6 +175,11 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
                 "file_size": file_size,
                 "video_id": video.id,
             },
+            event_domain="admin_content",
+            event_name="video_uploaded",
+            resource="video",
+            action="upload",
+            outcome="success",
         )
 
         return success_response(data=video.to_dict(), status_code=201)
@@ -182,6 +187,19 @@ def upload_video(sign_id: str) -> Tuple[Dict[str, Any], int]:
     except Exception as e:
         # Ошибка загрузки
         admin_video_uploads.labels(status='failure').inc()
+        log_business_event(
+            logger,
+            "Video upload failed",
+            {
+                "sign_id": sign_id,
+                "filename": file.filename,
+            },
+            event_domain="admin_content",
+            event_name="video_uploaded",
+            resource="video",
+            action="upload",
+            outcome="failure",
+        )
         logger.error(f"Video upload error: {e}", exc_info=True)
         raise
 
@@ -240,6 +258,17 @@ def update_video(video_id: int) -> Tuple[Dict[str, Any], int]:
     
     # Обновление метаданных синхронизации
     update_sync_metadata()
+
+    log_business_event(
+        logger,
+        "Video updated",
+        {"video_id": video_id, "sign_id": video.sign_id},
+        event_domain="admin_content",
+        event_name="video_updated",
+        resource="video",
+        action="update",
+        outcome="success",
+    )
     
     return success_response(data=video.to_dict())
 
@@ -278,5 +307,16 @@ def delete_video(video_id: int) -> Tuple[Dict[str, Any], int]:
     
     # Обновление метаданных синхронизации
     update_sync_metadata()
+
+    log_business_event(
+        logger,
+        "Video deleted",
+        {"video_id": video_id, "sign_id": video.sign_id},
+        event_domain="admin_content",
+        event_name="video_deleted",
+        resource="video",
+        action="delete",
+        outcome="success",
+    )
     
     return success_response(message='Видео удалено')

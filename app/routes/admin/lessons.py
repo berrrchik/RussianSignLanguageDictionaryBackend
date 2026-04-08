@@ -177,7 +177,7 @@ def create_lesson() -> Tuple[Dict[str, Any], int]:
     log_business_event(logger, "Lesson created", {
         "lesson_id": lesson.id,
         "title": lesson.title
-    })
+    }, event_domain="admin_content", event_name="lesson_created", resource="lesson", action="create", outcome="success")
     
     return success_response(data=lesson.to_dict(), status_code=201)
 
@@ -257,7 +257,7 @@ def update_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
     
     log_business_event(logger, "Lesson updated", {
         "lesson_id": lesson_id
-    })
+    }, event_domain="admin_content", event_name="lesson_updated", resource="lesson", action="update", outcome="success")
     
     return success_response(data=lesson.to_dict())
 
@@ -331,7 +331,7 @@ def delete_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
     
     log_business_event(logger, "Lesson deleted", {
         "lesson_id": lesson_id
-    })
+    }, event_domain="admin_content", event_name="lesson_deleted", resource="lesson", action="delete", outcome="success")
     
     return success_response(message='Урок удален')
 
@@ -394,6 +394,17 @@ def delete_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
 
         # Обновление метаданных синхронизации
         update_sync_metadata()
+
+        log_business_event(
+            logger,
+            "Lesson video deleted",
+            {"lesson_id": lesson_id},
+            event_domain="admin_content",
+            event_name="lesson_video_deleted",
+            resource="lesson_video",
+            action="delete",
+            outcome="success",
+        )
 
         return success_response(message='Видео удалено успешно')
 
@@ -486,6 +497,17 @@ def upload_lesson_video(lesson_id: str) -> Tuple[Dict[str, Any], int]:
 
         # Обновление метаданных синхронизации
         update_sync_metadata()
+
+        log_business_event(
+            logger,
+            "Lesson video uploaded",
+            {"lesson_id": lesson_id, "video_url": video_url},
+            event_domain="admin_content",
+            event_name="lesson_video_uploaded",
+            resource="lesson_video",
+            action="upload",
+            outcome="success",
+        )
 
         return success_response(data={'video_url': video_url}, message='Видео загружено успешно')
 
