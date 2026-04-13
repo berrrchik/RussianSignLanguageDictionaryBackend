@@ -5,6 +5,9 @@ import builtins
 import logging
 from unittest import mock
 
+from flask_compress import Compress
+from flask_cors import CORS
+
 from app import create_app
 from app.database import db
 from app.utils import logging_config
@@ -55,18 +58,21 @@ def test_create_app_enables_extensions_cors_and_swagger(
     """Фабрика подключает Compress, CORS и Swagger UI route."""
     root_logger, original_handlers, original_level = _restore_root_logger()
     try:
-        app = _build_test_app(test_config_factory, tmp_video_storage_config)
-        client = app.test_client()
-        response = client.get(
-            "/api/v1/sync/check/raw",
-            headers={"Origin": "http://example.com"},
-        )
+        with mock.patch("app.Compress", wraps=Compress) as compress_spy:
+            with mock.patch("app.CORS", wraps=CORS) as cors_spy:
+                app = _build_test_app(test_config_factory, tmp_video_storage_config)
+                client = app.test_client()
+                response = client.get(
+                    "/api/v1/sync/check/raw",
+                    headers={"Origin": "http://example.com"},
+                )
     finally:
         _reset_root_logger(root_logger, original_handlers, original_level)
 
     rules = {rule.rule for rule in app.url_map.iter_rules()}
 
-    assert "compress" in app.extensions
+    assert compress_spy.call_count == 1
+    assert cors_spy.call_count == 1
     assert any(rule.startswith("/api-docs") for rule in rules)
     assert response.headers.get("Access-Control-Allow-Origin") in {"*", "http://example.com"}
 
@@ -102,10 +108,11 @@ def test_create_app_registers_logging_hooks(
 ):
     """Фабрика подключает before/after hooks из log_request()."""
     captured_hooks = {}
+    original_log_request = logging_config.log_request
     root_logger, original_handlers, original_level = _restore_root_logger()
 
     def fake_log_request():
-        before_request, after_request = logging_config.log_request()
+        before_request, after_request = original_log_request()
         captured_hooks["before"] = before_request
         captured_hooks["after"] = after_request
         return before_request, after_request
