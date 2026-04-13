@@ -21,7 +21,7 @@ class TestSerializeDatetime:
         result = serialize_datetime(dt)
         
         assert isinstance(result, int)
-        assert result == 1736935800
+        assert result == 1736937000
     
     def test_serialize_datetime_none_returns_none(self):
         """Проверка что serialize_datetime возвращает None для None."""
@@ -380,116 +380,20 @@ class TestGetSyncDataRaw:
         assert 'updated_at' in video
 
 
-class TestGetEmbeddingsRaw:
-    """Тесты для GET /api/v1/sync/embeddings/raw."""
-    
-    def test_embeddings_raw_returns_correct_structure(self, app, client):
-        """Проверка структуры ответа без обертки."""
-        with app.app_context():
-            category = Category(id="cat1", name="Test Category", order=1)
-            db.session.add(category)
-            
-            sign = Sign(
-                id="s1",
-                word="test",
-                category_id="cat1",
-                embeddings=[0.1, 0.2, 0.3]
-            )
-            db.session.add(sign)
-            db.session.commit()
-        
-        response = client.get('/api/v1/sync/embeddings/raw')
-        assert response.status_code == 200
-        
-        data = response.get_json()
-        
-        # Проверка отсутствия обертки
-        assert 'success' not in data
-        assert 'data' not in data
-        
-        # Проверка структуры
-        assert 'embeddings' in data
-        assert 's1' in data['embeddings']
-        assert data['embeddings']['s1'] == [0.1, 0.2, 0.3]
-    
-    def test_embeddings_raw_excludes_signs_without_embeddings(self, app, client):
-        """Проверка что жесты без embeddings не включены."""
-        with app.app_context():
-            category = Category(id="cat1", name="Test Category", order=1)
-            db.session.add(category)
-            
-            sign_with = Sign(
-                id="s1",
-                word="with_embeddings",
-                category_id="cat1",
-                embeddings=[0.1, 0.2, 0.3]
-            )
-            sign_without = Sign(
-                id="s2",
-                word="without_embeddings",
-                category_id="cat1",
-                embeddings=None
-            )
-            db.session.add(sign_with)
-            db.session.add(sign_without)
-            db.session.commit()
-        
-        response = client.get('/api/v1/sync/embeddings/raw')
-        data = response.get_json()
-        
-        assert 's1' in data['embeddings']
-        assert 's2' not in data['embeddings']
+class TestRemovedSyncEndpoints:
+    """Тесты, что удаленные legacy endpoints больше не доступны."""
 
+    def test_removed_embeddings_endpoint_returns_404(self, client):
+        response = client.get('/api/v1/sync/embeddings/raw')
 
-class TestLegacyEndpointsStillWork:
-    """Тесты что legacy эндпоинты продолжают работать."""
-    
-    def test_legacy_check_still_has_wrapper(self, app, client):
-        """Проверка что legacy /check возвращает обертку."""
-        with app.app_context():
-            metadata = SyncMetadata(last_updated=datetime.utcnow())
-            db.session.add(metadata)
-            db.session.commit()
-        
+        assert response.status_code == 404
+
+    def test_removed_legacy_check_endpoint_returns_404(self, client):
         response = client.get('/api/v1/sync/check')
-        data = response.get_json()
-        
-        assert 'success' in data
-        assert data['success'] is True
-        assert 'data' in data
-        assert 'last_updated' in data['data']
-    
-    def test_legacy_check_uses_iso_format(self, app, client):
-        """Проверка что legacy /check использует ISO формат дат."""
-        with app.app_context():
-            metadata = SyncMetadata(last_updated=datetime(2025, 12, 4, 12, 7, 58))
-            db.session.add(metadata)
-            db.session.commit()
-        
-        response = client.get('/api/v1/sync/check')
-        data = response.get_json()
-        
-        last_updated = data['data']['last_updated']
-        assert isinstance(last_updated, str)
-        assert 'T' in last_updated
-        assert last_updated.endswith('Z')
-    
-    def test_legacy_data_still_has_wrapper(self, app, client):
-        """Проверка что legacy /data возвращает обертку."""
-        with app.app_context():
-            category = Category(id="cat1", name="Test", order=1)
-            db.session.add(category)
-            
-            metadata = SyncMetadata(last_updated=datetime.utcnow())
-            db.session.add(metadata)
-            db.session.commit()
-        
+
+        assert response.status_code == 404
+
+    def test_removed_legacy_data_endpoint_returns_404(self, client):
         response = client.get('/api/v1/sync/data')
-        data = response.get_json()
-        
-        assert 'success' in data
-        assert data['success'] is True
-        assert 'data' in data
-        assert 'categories' in data['data']
-        assert 'signs' in data['data']
-        assert 'last_updated' in data['data']
+
+        assert response.status_code == 404

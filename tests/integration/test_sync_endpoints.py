@@ -94,11 +94,6 @@ class TestSignVideoToDict:
     def test_sign_video_context_description_default_for_order_zero(self, app):
         """Проверка значения по умолчанию для order=0."""
         with app.app_context():
-            category = Category(id="cat1", name="Test Category", order=1)
-            db.session.add(category)
-            sign = Sign(id="s1", word="test", category_id="cat1")
-            db.session.add(sign)
-            
             video = SignVideo(
                 id=1,
                 sign_id="s1",
@@ -107,9 +102,6 @@ class TestSignVideoToDict:
                 context_description=None,
                 order=0
             )
-            db.session.add(video)
-            db.session.commit()
-            
             result = video.to_dict()
             assert result['context_description'] == "Основное видео"
     
@@ -252,29 +244,25 @@ class TestFormatDatetime:
 
 
 class TestSyncEndpoints:
-    """Тесты для endpoints синхронизации."""
+    """Тесты для актуальных raw endpoints синхронизации."""
     
     def test_sync_check_returns_correct_date_format(self, app, client):
-        """Проверка формата даты в ответе /sync/check."""
+        """Проверка формата даты в ответе /sync/check/raw."""
         with app.app_context():
             metadata = SyncMetadata(last_updated=datetime(2025, 12, 4, 12, 7, 58))
             db.session.add(metadata)
             db.session.commit()
         
-        response = client.get('/api/v1/sync/check')
+        response = client.get('/api/v1/sync/check/raw')
         assert response.status_code == 200
         
         data = response.get_json()
-        assert data['success'] is True
-        assert 'data' in data
-        assert 'last_updated' in data['data']
-        
-        last_updated = data['data']['last_updated']
-        assert last_updated.endswith('Z')
-        assert 'T' in last_updated
+        assert 'success' not in data
+        assert 'data' not in data
+        assert isinstance(data['last_updated'], int)
     
     def test_sync_data_returns_all_required_fields(self, app, client):
-        """Проверка наличия всех обязательных полей в ответе /sync/data."""
+        """Проверка наличия всех обязательных полей в ответе /sync/data/raw."""
         with app.app_context():
             category = Category(id="cat1", name="Test Category", order=1)
             db.session.add(category)
@@ -296,16 +284,16 @@ class TestSyncEndpoints:
             db.session.add(metadata)
             db.session.commit()
         
-        response = client.get('/api/v1/sync/data')
+        response = client.get('/api/v1/sync/data/raw')
         assert response.status_code == 200
         
         data = response.get_json()
-        assert data['success'] is True
-        assert 'data' in data
-        
-        response_data = data['data']
+        assert 'success' not in data
+        assert 'data' not in data
+        response_data = data
         assert 'categories' in response_data
         assert 'signs' in response_data
+        assert 'lessons' in response_data
         assert 'last_updated' in response_data
         
         # Проверка категории
@@ -325,10 +313,10 @@ class TestSyncEndpoints:
         assert video['context_description'] != ""
         
         # Проверка формата даты
-        assert response_data['last_updated'].endswith('Z')
+        assert isinstance(response_data['last_updated'], int)
     
     def test_sync_data_validates_signs_without_videos(self, app, client):
-        """Проверка валидации жестов без видео."""
+        """Жесты без видео не отбрасываются из raw sync payload."""
         with app.app_context():
             category = Category(id="cat1", name="Test Category", order=1)
             db.session.add(category)
@@ -355,10 +343,9 @@ class TestSyncEndpoints:
             db.session.add(metadata)
             db.session.commit()
         
-        response = client.get('/api/v1/sync/data')
+        response = client.get('/api/v1/sync/data/raw')
         assert response.status_code == 200
         
         data = response.get_json()
-        # Жест без видео всё равно должен быть в ответе (обратная совместимость)
-        signs = data['data']['signs']
+        signs = data['signs']
         assert len(signs) == 2
