@@ -227,24 +227,26 @@ def update_lesson(lesson_id: str) -> Tuple[Dict[str, Any], int]:
     """
     lesson = Lesson.query.get_or_404(lesson_id)
     data = request.get_json()
+
+    normalized_data = data.copy()
+    if 'order' in normalized_data:
+        try:
+            normalized_data['order'] = int(normalized_data['order'])
+        except (TypeError, ValueError):
+            return error_response('VALIDATION_ERROR', 'Поле order должно быть целым числом', 400)
     
     # Валидация (ID обязателен при обновлении, но берется из URL)
     # Добавляем ID в данные для валидации
-    validation_data = data.copy()
+    validation_data = normalized_data.copy()
     validation_data['id'] = lesson_id
     is_valid, error_msg = validate_lesson_data(validation_data, require_id=True)
     if not is_valid:
         return error_response('VALIDATION_ERROR', error_msg, 400)
     
     # Обновление полей (ID не изменяется). order приводим к int (Swagger может прислать "string").
-    for key, value in data.items():
+    for key, value in normalized_data.items():
         if key == 'id':
             continue
-        if key == 'order':
-            try:
-                value = int(value)
-            except (TypeError, ValueError):
-                return error_response('VALIDATION_ERROR', 'Поле order должно быть целым числом', 400)
         setattr(lesson, key, value)
     
     db.session.commit()
