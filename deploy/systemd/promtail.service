@@ -6,9 +6,8 @@ Requires=loki.service
 
 [Service]
 Type=simple
-User=berchik
-Group=berchik
-SupplementaryGroups=appuser
+User=appuser
+Group=appuser
 WorkingDirectory=/opt/monitoring
 ExecStart=/opt/monitoring/promtail -config.file=/opt/monitoring/promtail-config.yml
 Restart=always
