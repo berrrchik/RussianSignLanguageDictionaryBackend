@@ -3,7 +3,7 @@ server:
   grpc_listen_port: 0
 
 positions:
-  filename: /opt/monitoring/promtail-positions.yml
+  filename: /var/log/app/promtail-positions.yml
 
 clients:
   - url: http://127.0.0.1:3100/loki/api/v1/push
@@ -87,7 +87,7 @@ scrape_configs:
 
     pipeline_stages:
       - regex:
-          expression: '^\\[(?P<timestamp>[^\\]]+)\\] \\[(?P<pid>\\d+)\\] \\[(?P<level>[A-Z]+)\\] (?P<message>.*)$'
+          expression: '^\[(?P<timestamp>[^\]]+)\] \[(?P<pid>\d+)\] \[(?P<level>[A-Z]+)\] (?P<message>.*)$'
 
       - labels:
           level:
