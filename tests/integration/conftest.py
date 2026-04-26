@@ -94,9 +94,10 @@ def db_session_postgres(app_postgres):
     transaction = connection.begin()
 
     session = scoped_session(sessionmaker(bind=connection))
-    session.begin_nested()
+    session_instance = session()
+    session_instance.begin_nested()
 
-    @event.listens_for(session(), "after_transaction_end")
+    @event.listens_for(session_instance, "after_transaction_end")
     def restart_savepoint(session_, trans) -> None:
         parent = getattr(trans, "parent", None)
         if trans.nested and (parent is None or not parent.nested):
@@ -108,11 +109,14 @@ def db_session_postgres(app_postgres):
     try:
         yield session
     finally:
-        event.remove(session(), "after_transaction_end", restart_savepoint)
         db.session = previous_session
-        session.remove()
-        transaction.rollback()
-        connection.close()
+        try:
+            if event.contains(session_instance, "after_transaction_end", restart_savepoint):
+                event.remove(session_instance, "after_transaction_end", restart_savepoint)
+        finally:
+            session.remove()
+            transaction.rollback()
+            connection.close()
 
 
 @pytest.fixture
