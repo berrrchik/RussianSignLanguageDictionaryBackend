@@ -153,6 +153,7 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
         if formatted_results:
             # Вычисляем среднюю релевантность
             avg_sim = sum(r['similarity'] for r in formatted_results) / len(formatted_results)
+            top_similarity = max(r['similarity'] for r in formatted_results)
             search_avg_similarity.observe(avg_sim)
             search_results_count.observe(len(formatted_results))
             
@@ -160,15 +161,23 @@ def search_sbert() -> Tuple[Dict[str, Any], int]:
                 "query": text,
                 "results_count": len(formatted_results),
                 "avg_similarity": avg_sim,
+                "top_similarity": top_similarity,
                 "duration_ms": duration * 1000,
-                "model": model_path
+                "model": model_path,
+                "limit": limit,
+                "min_similarity": min_similarity
             }, event_domain="search", event_name="semantic_search", resource="search", action="query", outcome="success")
         else:
             search_empty_results.inc()
             log_business_event(logger, "Semantic search - no results", {
                 "query": text,
                 "duration_ms": duration * 1000,
-                "model": model_path
+                "model": model_path,
+                "results_count": 0,
+                "avg_similarity": 0.0,
+                "top_similarity": 0.0,
+                "limit": limit,
+                "min_similarity": min_similarity
             }, event_domain="search", event_name="semantic_search", resource="search", action="query", outcome="empty")
         
         return success_response(data={
