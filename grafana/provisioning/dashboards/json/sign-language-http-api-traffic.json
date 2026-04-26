@@ -1,0 +1,282 @@
+{
+  "id": null,
+  "uid": "sign-language-http-api-traffic",
+  "title": "HTTP API Traffic",
+  "tags": ["sign-language", "api", "http", "logs"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Requests By Method",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (method) (rate({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", method!=\"\", path=~\"/api/.*\"}[5m]))",
+          "legendFormat": "{{method}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Requests By Status Family",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum by (status_family) (rate({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", path=~\"/api/.*\"}[5m]))",
+          "legendFormat": "{{status_family}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Methods Share",
+      "type": "piechart",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum by (method) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", method!=\"\", path=~\"/api/.*\"}[$__range]))",
+          "legendFormat": "{{method}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "displayLabels": ["name", "percent", "value"],
+        "legend": { "displayMode": "list", "placement": "right", "showLegend": true },
+        "pieType": "pie",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Top API Routes",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "expr": "topk(12, sum by (route) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", route!=\"\", path=~\"/api/.*\"}[$__range])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 5,
+      "title": "Slow API Routes Over 500ms",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "targets": [
+        {
+          "expr": "topk(12, sum by (route) (count_over_time({service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", route!=\"\", path=~\"/api/.*\"} | json | duration_ms > 500 [$__range])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0 },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 6,
+      "title": "P95 API Duration",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "max(quantile_over_time(0.95, {service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", path=~\"/api/.*\"} | json | unwrap duration_ms [$__range]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 300 },
+              { "color": "red", "value": 1000 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 7,
+      "title": "P99 API Duration",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 16 },
+      "targets": [
+        {
+          "expr": "max(quantile_over_time(0.99, {service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", path=~\"/api/.*\"} | json | unwrap duration_ms [$__range]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 500 },
+              { "color": "red", "value": 1500 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Recent API Requests",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-sign-language"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "{service=\"sign-language-backend\", log_type=\"application\", event_kind=\"request\", path=~\"/api/.*\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      }
+    }
+  ],
+  "style": "dark",
+  "templating": { "list": [] },
+  "timepicker": {},
+  "weekStart": ""
+}
