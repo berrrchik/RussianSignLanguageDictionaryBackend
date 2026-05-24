@@ -1,0 +1,8 @@
+-r requirements.txt
+
+pytest==9.0.3
+pytest-cov==7.1.0
+pytest-html==4.2.0
+allure-pytest==2.15.3
+pytest-playwright==0.7.2
+playwright==1.60.0
