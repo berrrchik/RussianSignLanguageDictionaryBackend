@@ -48,7 +48,7 @@ def test_create_app_registers_expected_blueprints(
     finally:
         _reset_root_logger(root_logger, original_handlers, original_level)
 
-    assert {"sync", "search", "admin", "admin_pages"} <= set(app.blueprints)
+    assert {"health", "sync", "search", "admin", "admin_pages"} <= set(app.blueprints)
 
 
 def test_create_app_enables_extensions_cors_and_swagger(

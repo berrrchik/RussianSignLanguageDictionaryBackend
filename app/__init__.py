@@ -68,7 +68,8 @@ def create_app(config_class=Config):
         }
     })
     
-    from app.routes import sync, admin, search
+    from app.routes import sync, admin, search, health
+    app.register_blueprint(health.bp)
     app.register_blueprint(sync.bp, url_prefix='/api/v1/sync')
     app.register_blueprint(search.bp, url_prefix='/api/v1/search')
     app.register_blueprint(admin.bp, url_prefix='/api/v1/admin')
@@ -121,7 +122,7 @@ def create_app(config_class=Config):
         "info": {
             "title": "API Словаря русского жестового языка",
             "description": "REST API для системы управления словарём русского жестового языка",
-            "version": "1.0.0",
+            "version": app.config.get("APP_VERSION", "1.0.0"),
             "contact": {
                 "name": "ВОГ"
             }
@@ -172,6 +173,10 @@ def create_app(config_class=Config):
             {
                 "name": "Поиск",
                 "description": "Endpoints для семантического поиска"
+            },
+            {
+                "name": "Health",
+                "description": "Проверка работоспособности сервиса"
             }
         ],
         "definitions": {

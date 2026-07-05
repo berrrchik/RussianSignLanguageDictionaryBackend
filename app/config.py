@@ -10,6 +10,8 @@ load_dotenv()
 
 class Config:
     """Базовая конфигурация приложения."""
+
+    APP_VERSION = os.getenv('APP_VERSION', '1.0.0')
     
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
